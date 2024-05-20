@@ -1,0 +1,39 @@
+header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  font-size: 20px;
+  line-height: 40px;
+  padding-left: 8px;
+  background: #de3f89;
+  color: white;
+}
+
+main {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background-color: black;
+}
+
+#code-editor {
+  flex: 1;
+  min-height: 200px;
+  height: 100%;
+  width: 50%;
+}
+
+#vga-canvas-container {
+  max-width: 50%;
+}
+
+#preset-buttons button:not(:last-child) {
+  margin-right: 4px;
+}

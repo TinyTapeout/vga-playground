@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VGA Playground</title>
+    <link href="https://cdn.jsdelivr.net/npm/reset-css@5.0.2/reset.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="src/index.css" />
+  </head>
+  <body>
+    <header>
+      Tiny Tapeout VGA Playground
+      <span style="margin-left: 32px"> Presets:</span>
+      <span id="preset-buttons"></span>
+    </header>
+    <main>
+      <div id="code-editor"></div>
+      <div id="vga-canvas-container">
+        <canvas width="736" height="520" id="vga-canvas"></canvas>
+      </div>
+    </main>
+    <script src="src/index.ts" type="module"></script>
+  </body>
+</html>
