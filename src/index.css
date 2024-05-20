@@ -4,8 +4,9 @@ header {
   left: 0;
   right: 0;
   height: 40px;
+  display: flex;
+  align-items: center;
   font-size: 20px;
-  line-height: 40px;
   padding-left: 8px;
   background: #de3f89;
   color: white;
@@ -44,4 +45,13 @@ main {
 
 #preset-buttons button:not(:last-child) {
   margin-right: 4px;
+}
+
+#download-button {
+  margin-left: 8px;
+}
+
+#download-button svg:hover {
+  cursor: pointer;
+  fill: white;
 }

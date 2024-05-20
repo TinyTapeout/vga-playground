@@ -1,12 +1,15 @@
 import * as monaco from 'monaco-editor';
+import { FPSCounter } from './FPSCounter';
 import { examples } from './examples';
+import { exportProject } from './exportProject';
 import { HDLModuleJS } from './sim/hdlruntime';
 import { compileVerilator } from './verilator/compile';
-import { FPSCounter } from './FPSCounter';
+
+let currentProject = structuredClone(examples[0]);
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
-  value: examples[0].sources['project.v'],
+  value: currentProject.sources['project.v'],
   language: 'systemverilog',
   scrollBeyondLastLine: false,
   minimap: {
@@ -15,8 +18,8 @@ const editor = monaco.editor.create(codeEditorDiv!, {
 });
 
 const res = await compileVerilator({
-  topModule: examples[0].topModule,
-  sources: examples[0].sources,
+  topModule: currentProject.topModule,
+  sources: currentProject.sources,
 });
 if (!res.output) {
   console.log(res.errors);
@@ -52,13 +55,13 @@ const fpsCounter = new FPSCounter();
 
 editor.onDidChangeModelContent(async () => {
   stopped = true;
-  const sources = {
-    ...examples[0].sources,
+  currentProject.sources = {
+    ...currentProject.sources,
     'project.v': editor.getValue(),
   };
   const res = await compileVerilator({
-    topModule: examples[0].topModule,
-    sources: sources,
+    topModule: currentProject.topModule,
+    sources: currentProject.sources,
   });
   monaco.editor.setModelMarkers(
     editor.getModel()!,
@@ -143,7 +146,8 @@ for (const example of examples) {
   const button = document.createElement('button');
   button.textContent = example.name;
   button.addEventListener('click', async () => {
-    editor.setValue(example.sources['project.v']);
+    currentProject = structuredClone(example);
+    editor.setValue(currentProject.sources['project.v']);
   });
   buttons?.appendChild(button);
 }
@@ -159,4 +163,8 @@ window.addEventListener('visibilitychange', () => {
   } else {
     fpsCounter.resume(now);
   }
+});
+
+document.querySelector('#download-button')?.addEventListener('click', () => {
+  exportProject(currentProject);
 });
