@@ -7,6 +7,9 @@ export default defineConfig({
       languageWorkers: ['editorWorkerService'],
     }),
   ],
+  build: {
+    target: 'esnext'
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext',
