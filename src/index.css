@@ -34,6 +34,14 @@ main {
   max-width: 50%;
 }
 
+#fps-display {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  font-variant-numeric: tabular-nums;
+  color: white;
+}
+
 #preset-buttons button:not(:last-child) {
   margin-right: 4px;
 }

@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor';
 import { examples } from './examples';
 import { HDLModuleJS } from './sim/hdlruntime';
 import { compileVerilator } from './verilator/compile';
+import { FPSCounter } from './FPSCounter';
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
@@ -47,6 +48,7 @@ function getVGASignals() {
 }
 
 let stopped = false;
+const fpsCounter = new FPSCounter();
 
 editor.onDidChangeModelContent(async () => {
   stopped = true;
@@ -79,12 +81,14 @@ editor.onDidChangeModelContent(async () => {
   jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
   jmod.init();
   reset();
+  fpsCounter.reset();
   stopped = false;
 });
 
 const canvas = document.querySelector<HTMLCanvasElement>('#vga-canvas');
 const ctx = canvas?.getContext('2d');
 const imageData = ctx?.createImageData(736, 520);
+const fpsDisplay = document.querySelector('#fps-count');
 
 function waitFor(condition: () => boolean, timeout = 10000) {
   let counter = 0;
@@ -94,8 +98,15 @@ function waitFor(condition: () => boolean, timeout = 10000) {
   }
 }
 
-function animationFrame() {
+function animationFrame(now: number) {
   requestAnimationFrame(animationFrame);
+
+  fpsCounter.update(now);
+
+  if (fpsDisplay) {
+    fpsDisplay.textContent = `${fpsCounter.getFPS().toFixed(0)}`;
+  }
+
   if (stopped || !imageData || !ctx) {
     return;
   }
@@ -139,4 +150,13 @@ for (const example of examples) {
 
 window.addEventListener('resize', () => {
   editor.layout();
+});
+
+window.addEventListener('visibilitychange', () => {
+  const now = performance.now();
+  if (document.hidden) {
+    fpsCounter.pause(now);
+  } else {
+    fpsCounter.resume(now);
+  }
 });
