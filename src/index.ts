@@ -33,9 +33,11 @@ let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CON
 await jmod.init();
 
 function reset() {
+  const ui_in = jmod.state.ui_in;
   jmod.powercycle();
   jmod.state.ena = 1;
   jmod.state.rst_n = 0;
+  jmod.state.ui_in = ui_in;
   jmod.tick2(10);
   jmod.state.rst_n = 1;
 }
