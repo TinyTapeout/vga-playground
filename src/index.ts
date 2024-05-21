@@ -7,6 +7,8 @@ import { compileVerilator } from './verilator/compile';
 
 let currentProject = structuredClone(examples[0]);
 
+const inputButtons = Array.from(document.querySelectorAll('#input-values button'));
+
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
   value: currentProject.sources['project.v'],
@@ -81,6 +83,7 @@ editor.onDidChangeModelContent(async () => {
   if (jmod) {
     jmod.dispose();
   }
+  inputButtons.map((b) => b.classList.remove('active'));
   jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
   await jmod.init();
   reset();
@@ -167,4 +170,27 @@ window.addEventListener('visibilitychange', () => {
 
 document.querySelector('#download-button')?.addEventListener('click', () => {
   exportProject(currentProject);
+});
+
+function toggleButton(index: number) {
+  const bit = 1 << index;
+  jmod.state.ui_in = jmod.state.ui_in ^ bit;
+  if (jmod.state.ui_in & bit) {
+    inputButtons[index].classList.add('active');
+  } else {
+    inputButtons[index].classList.remove('active');
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if ('r' === e.key) {
+    reset();
+  }
+  if (['0', '1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
+    toggleButton(parseInt(e.key, 10));
+  }
+});
+
+inputButtons.forEach((button, index) => {
+  button.addEventListener('click', () => toggleButton(index));
 });
