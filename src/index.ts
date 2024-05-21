@@ -2,7 +2,7 @@ import * as monaco from 'monaco-editor';
 import { FPSCounter } from './FPSCounter';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
-import { HDLModuleJS } from './sim/hdlruntime';
+import { HDLModuleWASM } from './sim/hdlwasm';
 import { compileVerilator } from './verilator/compile';
 
 let currentProject = structuredClone(examples[0]);
@@ -26,8 +26,8 @@ if (!res.output) {
   throw new Error('Compile error');
 }
 
-// const jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
-let jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
+let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
+//let jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
 await jmod.init();
 
 function reset() {
@@ -81,8 +81,8 @@ editor.onDidChangeModelContent(async () => {
   if (jmod) {
     jmod.dispose();
   }
-  jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
-  jmod.init();
+  jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
+  await jmod.init();
   reset();
   fpsCounter.reset();
   stopped = false;
