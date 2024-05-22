@@ -31,13 +31,9 @@ module tt_um_vga_example(
   assign uio_oe  = 0;
 
   
-  wire   [9:0] x_px;
-  wire   [9:0] y_px;
-
-
-  wire    activevideo;
-  wire    px_clk;
-  assign  px_clk = clk;
+  wire [9:0] x_px;
+  wire [9:0] y_px;
+  wire activevideo;
   
   reg [19:0] tm;
   reg [9:0] y_prv;
