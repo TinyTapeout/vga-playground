@@ -28,7 +28,7 @@ wire [9:0] pix_x;
 wire [9:0] pix_y;
 
 wire running;
-assign running = ui_in[0];
+assign running = ~ui_in[0];
 
 wire randomize;
 assign randomize = ui_in[1];
