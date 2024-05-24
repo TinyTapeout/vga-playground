@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: npm run build -- --base /vga-playground
+        run: npm run build -- --base /vga-conway
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
