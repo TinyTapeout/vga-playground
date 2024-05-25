@@ -1,0 +1,8 @@
+hvsync_generator.v was derived from the 8bitworkshop verilog-vga preset.
+
+Their [README](https://github.com/sehugg/8bitworkshop/blob/master/README.md#license) states: 
+
+> All included code samples located in the presets/ directory are licensed under CC0 
+> unless a different license is explicitly stated within the specific code sample.
+
+There is no explicit license in the verilog-vga preset, so I assume it is CC0.
