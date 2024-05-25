@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2024 Ciro Cattuto
- * based on examples by Uri Shaked
+ * based on the VGA examples by Uri Shaked
+ * and on tt07-conway-term (https://github.com/ccattuto/tt07-conway-term)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -27,9 +28,11 @@ wire video_active;
 wire [9:0] pix_x;
 wire [9:0] pix_y;
 
+// stops/starts simulation
 wire running;
 assign running = ~ui_in[0];
 
+// randomizes board state
 wire randomize;
 assign randomize = ui_in[1];
 
@@ -53,15 +56,19 @@ hvsync_generator hvsync_gen(
   .vpos(pix_y)
 );
 
-wire [10:0] cell_index;
-assign cell_index = (pix_y[7:3] << 6) | pix_x[8:3];
-
+// high when the pixel belongs to the simulation rectangle
 wire frame_active;
 assign frame_active = (pix_x >= 64 && pix_x < 640-64 && pix_y >= 112 && pix_y < 480-112) ? 1 : 0;
 
+// look up into the 8x8 icon bitmap for live cells
 wire icon_pixel;
 assign icon_pixel = icon[pix_y[2:0]][pix_x[2:0]];
 
+// compute index into board state
+wire [10:0] cell_index;
+assign cell_index = (pix_y[7:3] << 6) | pix_x[8:3];
+
+// generate RGB signals
 assign R = (video_active & frame_active) ? {board_state[cell_index] & icon_pixel, 1'b1} : 2'b00;
 assign G = (video_active & frame_active) ? {board_state[cell_index] & icon_pixel, 1'b1} : 2'b00;
 assign B = 2'b01;
@@ -293,7 +300,7 @@ always @(posedge clk) begin
   end
 end
 
-// --------------- ICON --------------------
+// --------------- ICON FOR LIVE CELL --------------------
 
 reg [7:0] icon[0:7];
 initial begin
