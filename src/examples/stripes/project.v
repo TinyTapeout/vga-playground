@@ -37,7 +37,6 @@ module tt_um_vga_example(
   wire _unused_ok = &{ena, ui_in, uio_in};
 
   reg [9:0] counter;
-  reg [9:0] prev_y;
 
   hvsync_generator hvsync_gen(
     .clk(clk),
@@ -58,12 +57,11 @@ module tt_um_vga_example(
   always @(posedge clk) begin
     if (~rst_n) begin
       counter <= 0;
-    end else begin
-      prev_y <= pix_y;
-      if (pix_y == 0 && prev_y != pix_y) begin
-          counter <= counter + 1;
-      end
     end
+  end
+
+  always @(posedge vsync) begin
+    counter <= counter + 1;
   end
   
 endmodule
