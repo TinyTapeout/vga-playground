@@ -7,9 +7,13 @@ header {
   display: flex;
   align-items: center;
   font-size: 20px;
-  padding-left: 8px;
+  padding: 0 8px;
   background: #de3f89;
   color: white;
+}
+
+.flex-spacer {
+  flex: 1;
 }
 
 main {
