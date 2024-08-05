@@ -230,6 +230,8 @@ export class HDLModuleWASM implements HDLModuleRunner {
   stopped: boolean;
   resetStartTimeMsec: number;
 
+  _tick2: (ofs: number, iters: number) => void;
+
   constructor(moddef: HDLModuleDef, constpool: HDLModuleDef, maxMemoryMB?: number) {
     this.hdlmod = moddef;
     this.constpool = constpool;
@@ -243,12 +245,19 @@ export class HDLModuleWASM implements HDLModuleRunner {
     await this.genModule();
     this.genStateInterface();
     this.enableTracing();
+    this.cacheFunctions();
   }
 
   initSync() {
     this.genModuleSync();
     this.genStateInterface();
     this.enableTracing();
+    this.cacheFunctions();
+  }
+
+  private cacheFunctions() {
+    // Cache the tick2 function for performance:
+    this._tick2 = (this.instance.exports as any).tick2;
   }
 
   powercycle() {
@@ -281,7 +290,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
   }
 
   tick2(iters: number) {
-    (this.instance.exports as any).tick2(GLOBALOFS, iters);
+    this._tick2(GLOBALOFS, iters);
   }
 
   isFinished() {
