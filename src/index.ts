@@ -132,9 +132,9 @@ function animationFrame(now: number) {
       if (vsync) {
         break frameLoop;
       }
-      data[offset] = r << 6;
-      data[offset + 1] = g << 6;
-      data[offset + 2] = b << 6;
+      data[offset] = r * 85;
+      data[offset + 1] = g * 85;
+      data[offset + 2] = b * 85;
       data[offset + 3] = 0xff;
     }
     waitFor(() => getVGASignals().hsync);
