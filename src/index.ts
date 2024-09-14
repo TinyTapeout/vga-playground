@@ -32,6 +32,8 @@ let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CON
 //let jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
 await jmod.init();
 
+const uo_out_offset_in_jmod_databuf = jmod.globals.lookup("uo_out").offset;
+
 function reset() {
   const ui_in = jmod.state.ui_in;
   jmod.powercycle();
@@ -44,7 +46,11 @@ function reset() {
 reset();
 
 function getVGASignals() {
-  const uo_out = jmod.state.uo_out as number;
+  // it is significanly faster to read 'uo_out' value directly from the jmod data buffer
+  // instead of jmod.state.uo_out acccessor property
+  // see HDLModuleWASM.defineProperty() implementation for inner details on how accessor works
+  const uo_out = jmod.data8[uo_out_offset_in_jmod_databuf];
+
   return {
     hsync: !!(uo_out & 0b10000000),
     vsync: !!(uo_out & 0b00001000),
