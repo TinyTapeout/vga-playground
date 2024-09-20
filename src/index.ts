@@ -79,18 +79,29 @@ const audioPlayer = new AudioPlayer(sampleRate, expectedFPS);
 const vgaClockRate = 25_175_000;
 const ticksPerSample = vgaClockRate / sampleRate;
 
+const lowPassFrequency = 20_000;
+const lowPassFilterSize = Math.ceil(sampleRate/lowPassFrequency);
+
 let audioTickCounter = 0;
 let audioSample = 0;
-let lowPassFilter = 0;
-let alphaLowPass20kHzAdjustedToFPS = 1.0;
+
+let sampleQueueForLowPassFiter = new Float32Array(lowPassFilterSize);
+let sampleQueueIndex = 0;
+
 function updateAudio() {
-  const alpha = alphaLowPass20kHzAdjustedToFPS;
-  // @TODO: optimize the following line, floating operations here are currently slow!
-  lowPassFilter = alpha*lowPassFilter + (1.0-alpha)*getAudioSignal();
-  audioSample += lowPassFilter;
+  audioSample += getAudioSignal();
   if (++audioTickCounter < ticksPerSample)
     return;
-  audioPlayer.feed(audioSample / ticksPerSample, fpsCounter.getFPS());
+
+  const newSample = audioSample / ticksPerSample;
+
+  sampleQueueForLowPassFiter[sampleQueueIndex++] = newSample;
+  sampleQueueIndex %= lowPassFilterSize;
+  let filteredSample = sampleQueueForLowPassFiter[0];
+  for (let i = 1; i < lowPassFilterSize; i++)
+    filteredSample += sampleQueueForLowPassFiter[i];
+
+  audioPlayer.feed(filteredSample / lowPassFilterSize, fpsCounter.getFPS());
   audioTickCounter = 0;
   audioSample = 0;
 }
@@ -152,18 +163,6 @@ function animationFrame(now: number) {
   requestAnimationFrame(animationFrame);
 
   fpsCounter.update(now);
-
-  // Need to simulate low pass filter of Audio PMOD
-  // with a likely cutoff around 20 kHz
-  // 
-  // Time constant tau = 1 / (2 * π * cutoff_freq) = 1/(2*π* 20kHz) ~ 1 / 125664
-  //                                               = 1/(2*π*100kHz) ~ 1 / 628318
-  // Sampling period Ts = (1 / sampling_freq)      = 1/25MHz        ~ 1 / 25175000
-  // Alpha = tau / (tau + Ts) = 1 / (1 + tau / Ts)
-  const alphaLowPass10kHz  = 0.998  // = 1 / (1 +  62832/25175000)  ~ 1 / 1.002
-  const alphaLowPass20kHz  = 0.995  // = 1 / (1 + 125664/25175000)  ~ 1 / 1.005
-  const alphaLowPass100kHz = 0.9756 // = 1 / (1 + 628318/25175000)  ~ 1 / 1.025
-  alphaLowPass20kHzAdjustedToFPS = 1.0 / (1.0 + 0.005 * (fpsCounter.getFPS()/expectedFPS));
 
   if (fpsDisplay) {
     fpsDisplay.textContent = `${fpsCounter.getFPS().toFixed(0)}`;
