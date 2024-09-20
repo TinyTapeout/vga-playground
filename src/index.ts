@@ -4,6 +4,7 @@ import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import { compileVerilator } from './verilator/compile';
+import { AudioPlayer } from './AudioPlayer';
 
 let currentProject = structuredClone(examples[0]);
 
@@ -60,6 +61,18 @@ function getVGASignals() {
   };
 }
 
+function getAudioSignal() {
+  const uio_out = (jmod.state.uio_out ?? 0) as number;
+  const uio_oe = (jmod.state.uio_oe ?? 0) as number;
+  return (uio_out & uio_oe) >> 7; // uio[7]
+}
+
+const audioPlayer = new AudioPlayer(25_000_000);
+function updateAudio() {
+  const audio = getAudioSignal();
+  audioPlayer.feed(audio);
+}
+
 let stopped = false;
 const fpsCounter = new FPSCounter();
 
@@ -108,6 +121,7 @@ function waitFor(condition: () => boolean, timeout = 10000) {
   let counter = 0;
   while (!condition() && counter < timeout) {
     jmod.tick2(1);
+    updateAudio();
     counter++;
   }
 }
@@ -131,6 +145,7 @@ function animationFrame(now: number) {
     for (let x = 0; x < 736; x++) {
       const offset = (y * 736 + x) * 4;
       jmod.tick2(1);
+      updateAudio();
       const { hsync, vsync, r, g, b } = getVGASignals();
       if (hsync) {
         break;
@@ -181,6 +196,10 @@ document.querySelector('#download-button')?.addEventListener('click', () => {
 });
 
 function toggleButton(index: number) {
+  if (index === 8) {
+    audioPlayer.resume();
+    return;
+  }
   const bit = 1 << index;
   jmod.state.ui_in = jmod.state.ui_in ^ bit;
   if (jmod.state.ui_in & bit) {
