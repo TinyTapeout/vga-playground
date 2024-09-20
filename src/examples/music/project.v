@@ -5,6 +5,9 @@
 
 `default_nettype none
 
+`define MUSIC_SPEED   1'b1;  // for 60 FPS
+// `define MUSIC_SPEED   2'd2;  // for 30 FPS
+
 `define C1  481; // 32.70375 Hz 
 `define Cs1 454; // 34.6475 Hz 
 `define D1  429; // 36.7075 Hz 
@@ -198,7 +201,7 @@ module tt_um_vga_example(
     end else begin
 
       if (x == 0 && y == 0) begin
-        {frame_counter, frame_counter_frac} <= {frame_counter,frame_counter_frac} + 1;
+        {frame_counter, frame_counter_frac} <= {frame_counter,frame_counter_frac} + `MUSIC_SPEED;
       end
 
       // noise
