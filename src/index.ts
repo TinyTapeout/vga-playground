@@ -34,6 +34,8 @@ let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CON
 await jmod.init();
 
 const uo_out_offset_in_jmod_databuf = jmod.globals.lookup("uo_out").offset;
+const uio_out_offset_in_jmod_databuf = jmod.globals.lookup("uio_out").offset;
+const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup("uio_oe").offset;
 
 function reset() {
   const ui_in = jmod.state.ui_in;
@@ -62,15 +64,35 @@ function getVGASignals() {
 }
 
 function getAudioSignal() {
-  const uio_out = (jmod.state.uio_out ?? 0) as number;
-  const uio_oe = (jmod.state.uio_oe ?? 0) as number;
-  return (uio_out & uio_oe) >> 7; // uio[7]
+  // see getVGASignals() implementation above for explanation about use of jmod.data8
+  const uio_out = jmod.data8[uio_out_offset_in_jmod_databuf];
+  const uio_oe = jmod.data8[uio_oe_offset_in_jmod_databuf];
+  return (uio_out & uio_oe) >> 7;
 }
 
-const audioPlayer = new AudioPlayer(25_000_000);
+const expectedFPS = 60;
+const sampleRate = 48_000*4;// @TODO: 192000 high sampleRate might not be supported on all platforms
+                            // downsample to 48000 inside the AudioResamplerProcessor
+                            // Empirically higher sampling rate helps with occasional high pitch noise.
+const audioPlayer = new AudioPlayer(sampleRate, expectedFPS);
+
+const vgaClockRate = 25_175_000;
+const ticksPerSample = vgaClockRate / sampleRate;
+
+let audioTickCounter = 0;
+let audioSample = 0;
+let lowPassFilter = 0;
+let alphaLowPass20kHzAdjustedToFPS = 1.0;
 function updateAudio() {
-  const audio = getAudioSignal();
-  audioPlayer.feed(audio);
+  const alpha = alphaLowPass20kHzAdjustedToFPS;
+  // @TODO: optimize the following line, floating operations here are currently slow!
+  lowPassFilter = alpha*lowPassFilter + (1.0-alpha)*getAudioSignal();
+  audioSample += lowPassFilter;
+  if (++audioTickCounter < ticksPerSample)
+    return;
+  audioPlayer.feed(audioSample / ticksPerSample, fpsCounter.getFPS());
+  audioTickCounter = 0;
+  audioSample = 0;
 }
 
 let stopped = false;
@@ -130,6 +152,18 @@ function animationFrame(now: number) {
   requestAnimationFrame(animationFrame);
 
   fpsCounter.update(now);
+
+  // Need to simulate low pass filter of Audio PMOD
+  // with a likely cutoff around 20 kHz
+  // 
+  // Time constant tau = 1 / (2 * π * cutoff_freq) = 1/(2*π* 20kHz) ~ 1 / 125664
+  //                                               = 1/(2*π*100kHz) ~ 1 / 628318
+  // Sampling period Ts = (1 / sampling_freq)      = 1/25MHz        ~ 1 / 25175000
+  // Alpha = tau / (tau + Ts) = 1 / (1 + tau / Ts)
+  const alphaLowPass10kHz  = 0.998  // = 1 / (1 +  62832/25175000)  ~ 1 / 1.002
+  const alphaLowPass20kHz  = 0.995  // = 1 / (1 + 125664/25175000)  ~ 1 / 1.005
+  const alphaLowPass100kHz = 0.9756 // = 1 / (1 + 628318/25175000)  ~ 1 / 1.025
+  alphaLowPass20kHzAdjustedToFPS = 1.0 / (1.0 + 0.005 * (fpsCounter.getFPS()/expectedFPS));
 
   if (fpsDisplay) {
     fpsDisplay.textContent = `${fpsCounter.getFPS().toFixed(0)}`;

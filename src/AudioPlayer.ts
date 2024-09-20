@@ -1,64 +1,52 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2024, Tiny Tapeout LTD
-// Author: Uri Shaked
-
-const CHUNKS_PER_SECOND = 10;
+// Author: Renaldas Zioma, Uri Shaked
 
 export class AudioPlayer {
-  private counter = 0;
-  readonly audioCtx = new AudioContext();
+  private audioCtx : AudioContext;
+  private resamplerNode : AudioWorkletNode;
 
-  private readonly gainNode = this.audioCtx.createGain();
-  private chunkBuffer = new AudioBuffer({
-    length: this.audioCtx.sampleRate / CHUNKS_PER_SECOND,
-    numberOfChannels: 1,
-    sampleRate: this.audioCtx.sampleRate,
-  });
+  constructor(private readonly sampleRate: number, private readonly fps: number, private readonly bufferSize: number = 200) {
+    this.audioCtx = new AudioContext({sampleRate:sampleRate, latencyHint:'interactive'});
+    this.audioCtx.audioWorklet.addModule(new URL('/resampler.js', import.meta.url)).then(() => {
 
-  private chunk = this.chunkBuffer.getChannelData(0);
-  private node: AudioBufferSourceNode | null = null;
-  private prevValue = 0;
-  private playedSamples = 0;
-  private lastSample = 0;
+      this.resamplerNode = new AudioWorkletNode(this.audioCtx, 'resampler');
+      this.resamplerNode.connect(this.audioCtx.destination);
 
-  constructor(private readonly clockFrequency: number) {
-    this.gainNode.connect(this.audioCtx.destination);
+      this.audioCtx.resume().then(() => {
+        console.log('Audio playback started');
+      });
+    });
   }
 
-  feed(value: number) {
-    this.counter++;
-    if (this.prevValue === value) {
-      return;
+  private writeIndex = 0;
+  readonly buffer = new Float32Array(this.bufferSize); // larger buffer reduces the communication overhead with the worker thread
+                                                       // however, if buffer is too large it could lead to worker thread starving
+  feed(value: number, current_fps: number) {
+    if (this.writeIndex >= this.bufferSize) {
+      if (this.resamplerNode != null)
+      {
+        this.resamplerNode.port.postMessage({
+          type: 'samples',
+          samples: this.buffer,
+          fps: current_fps,
+        });
+      }
+      this.writeIndex = 0;
     }
-
-    const currentTime = this.counter / this.clockFrequency;
-    const { sampleRate } = this.audioCtx;
-    let currentSample = Math.floor(currentTime * sampleRate) - this.playedSamples;
-    if (currentSample - this.lastSample > sampleRate / 20) {
-      this.lastSample = currentSample;
-      currentSample = 0;
-    } else {
-      this.lastSample = currentSample;
-    }
-    if (currentSample > this.chunk.length) {
-      this.playedSamples += this.chunk.length;
-      this.node = new AudioBufferSourceNode(this.audioCtx, { buffer: this.chunkBuffer });
-      this.node.connect(this.gainNode);
-      this.node.start();
-      currentSample %= this.chunk.length;
-      this.chunkBuffer = new AudioBuffer({
-        length: sampleRate / CHUNKS_PER_SECOND,
-        numberOfChannels: 1,
-        sampleRate,
-      });
-      this.chunk = this.chunkBuffer.getChannelData(0);
-      this.chunk.fill(this.prevValue, 0, currentSample);
-    }
-    this.chunk.fill(value, currentSample);
-    this.prevValue = value;
+    
+    this.buffer[this.writeIndex] = value;
+    this.writeIndex++;
   }
 
   resume() {
     this.audioCtx.resume();
+    if (this.resamplerNode != null)
+    {
+      this.resamplerNode.port.postMessage({
+        type: 'reset'
+      });
+    }
   }
 }
+
