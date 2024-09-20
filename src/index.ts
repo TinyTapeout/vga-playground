@@ -149,6 +149,7 @@ const canvas = document.querySelector<HTMLCanvasElement>('#vga-canvas');
 const ctx = canvas?.getContext('2d');
 const imageData = ctx?.createImageData(736, 520);
 const fpsDisplay = document.querySelector('#fps-count');
+const audioLatencyDisplay = document.querySelector('#audio-latency-ms');
 
 function waitFor(condition: () => boolean, timeout = 10000) {
   let counter = 0;
@@ -166,6 +167,10 @@ function animationFrame(now: number) {
 
   if (fpsDisplay) {
     fpsDisplay.textContent = `${fpsCounter.getFPS().toFixed(0)}`;
+  }
+
+  if (audioLatencyDisplay) {
+    audioLatencyDisplay.textContent = `${audioPlayer.latencyInMilliseconds.toFixed(0)}`
   }
 
   if (stopped || !imageData || !ctx) {

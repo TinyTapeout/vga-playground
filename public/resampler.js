@@ -41,6 +41,9 @@ class AudioResamplerProcessor extends AudioWorkletProcessor {
         this.ringBuffer[this.writeIndex] = samples[i];
         this.writeIndex = (this.writeIndex + 1) % this.ringBufferSize; // Wrap around
       }
+
+      const samplesAvailable = (this.writeIndex - this.readIndex + this.ringBufferSize) % this.ringBufferSize;
+      this.port.postMessage(samplesAvailable);
     }
     else if (data.type === 'reset') {
       this.ringBuffer.fill(this.previousSample);

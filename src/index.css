@@ -39,6 +39,14 @@ main {
   max-width: 50%;
 }
 
+#audio-latency-display {
+  position: absolute;
+  top: 8px;
+  right: 80px;
+  font-variant-numeric: tabular-nums;
+  color: grey;
+}
+
 #fps-display {
   position: absolute;
   top: 8px;

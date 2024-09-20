@@ -13,10 +13,17 @@ export class AudioPlayer {
       this.resamplerNode = new AudioWorkletNode(this.audioCtx, 'resampler');
       this.resamplerNode.connect(this.audioCtx.destination);
 
+      this.resamplerNode.port.onmessage = this.handleMessage.bind(this);
+
       this.audioCtx.resume().then(() => {
         console.log('Audio playback started');
       });
     });
+  }
+
+  readonly latencyInMilliseconds = 0.0;
+  handleMessage(event) {
+    this.latencyInMilliseconds = event.data / this.sampleRate * 1000.0;
   }
 
   private writeIndex = 0;
