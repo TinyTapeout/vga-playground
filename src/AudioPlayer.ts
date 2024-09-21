@@ -24,6 +24,7 @@ export class AudioPlayer {
   readonly latencyInMilliseconds = 0.0;
   handleMessage(event) {
     this.latencyInMilliseconds = event.data / this.sampleRate * 1000.0;
+    this.latencyInMilliseconds += this.audioCtx.outputLatency * 1000.0;
   }
 
   private writeIndex = 0;
