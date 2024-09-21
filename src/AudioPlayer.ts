@@ -25,8 +25,16 @@ export class AudioPlayer {
 
   readonly latencyInMilliseconds = 0.0;
   handleMessage(event) {
-    this.latencyInMilliseconds = event.data / this.sampleRate * 1000.0;
+    const samplesInBuffer = event.data[0];
+    this.latencyInMilliseconds = samplesInBuffer / this.sampleRate * 1000.0;
     this.latencyInMilliseconds += this.audioCtx.outputLatency * 1000.0;
+
+    const bufferOccupancy = event.data[1];
+    if (this.resumeScheduled && bufferOccupancy > 0.25) // resume playback once resampler's
+    {                                                   // buffer is at least 25% full
+      this.audioCtx.resume();
+      this.resumeScheduled = false;
+    }
   }
 
   private writeIndex = 0;
@@ -41,21 +49,18 @@ export class AudioPlayer {
           samples: this.buffer,
           fps: current_fps,
         });
-        if (this.resumeScheduled == 1)
-          this.audioCtx.resume();
-        this.resumeScheduled--;
       }
       this.writeIndex = 0;
     }
-    
+
     this.buffer[this.writeIndex] = value;
     this.writeIndex++;
   }
 
-  private resumeScheduled = 0;
+  private resumeScheduled = false;
   resume() {
-    this.resumeScheduled = 50;  // pre-feed buffers before resuming playback
-                                // to avoid starving playback
+    // Pre-feed buffers before resuming playback to avoid starving playback
+    this.resumeScheduled = true;
     if (this.resamplerNode != null)
     {
       this.resamplerNode.port.postMessage({
@@ -65,7 +70,7 @@ export class AudioPlayer {
   }
 
   suspend() {
-    this.resumeScheduled = 0;
+    this.resumeScheduled = false;
     this.audioCtx.suspend();
     if (this.resamplerNode != null)
     {
@@ -79,7 +84,7 @@ export class AudioPlayer {
     return (this.audioCtx.state === "running");
   }
   needsFeeding() {
-    return this.isRunning() | this.resumeScheduled > 0;
+    return this.isRunning() || this.resumeScheduled;
   }
 
 }

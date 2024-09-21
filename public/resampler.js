@@ -33,6 +33,7 @@ class AudioResamplerProcessor extends AudioWorkletProcessor {
       for (let i = 0; i < samples.length; i++) {
         if ((this.writeIndex + 1) % this.ringBufferSize == this.readIndex)
         {
+          this.port.postMessage([this.ringBufferSize, 1.0]);
           console.log("Buffer is full. Dropping", samples.length - i, "incomming samples!");
           break; // Skip incomming samples when ring-buffer is full
         }
@@ -43,7 +44,7 @@ class AudioResamplerProcessor extends AudioWorkletProcessor {
       }
 
       const samplesAvailable = (this.writeIndex - this.readIndex + this.ringBufferSize) % this.ringBufferSize;
-      this.port.postMessage(samplesAvailable);
+      this.port.postMessage([samplesAvailable, samplesAvailable / this.ringBufferSize]);
     }
     else if (data.type === 'reset') {
       this.ringBuffer.fill(this.previousSample);
