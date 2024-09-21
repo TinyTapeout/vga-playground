@@ -6,7 +6,7 @@ export class AudioPlayer {
   private audioCtx : AudioContext;
   private resamplerNode : AudioWorkletNode;
 
-  constructor(private readonly sampleRate: number, private readonly fps: number, private readonly bufferSize: number = 200) {
+  constructor(private readonly sampleRate: number, private readonly fps: number, stateListener = null, private readonly bufferSize: number = 200) {
     this.audioCtx = new AudioContext({sampleRate:sampleRate, latencyHint:'interactive'});
     this.audioCtx.audioWorklet.addModule(new URL('/resampler.js', import.meta.url)).then(() => {
 
@@ -19,6 +19,8 @@ export class AudioPlayer {
         console.log('Audio playback started');
       });
     });
+
+    this.audioCtx.onstatechange = stateListener;
   }
 
   readonly latencyInMilliseconds = 0.0;
@@ -39,6 +41,9 @@ export class AudioPlayer {
           samples: this.buffer,
           fps: current_fps,
         });
+        if (this.resumeScheduled == 1)
+          this.audioCtx.resume();
+        this.resumeScheduled--;
       }
       this.writeIndex = 0;
     }
@@ -47,8 +52,10 @@ export class AudioPlayer {
     this.writeIndex++;
   }
 
+  private resumeScheduled = 0;
   resume() {
-    this.audioCtx.resume();
+    this.resumeScheduled = 50;  // pre-feed buffers before resuming playback
+                                // to avoid starving playback
     if (this.resamplerNode != null)
     {
       this.resamplerNode.port.postMessage({
@@ -56,5 +63,24 @@ export class AudioPlayer {
       });
     }
   }
+
+  suspend() {
+    this.resumeScheduled = 0;
+    this.audioCtx.suspend();
+    if (this.resamplerNode != null)
+    {
+      this.resamplerNode.port.postMessage({
+        type: 'reset'
+      });
+    }
+  }
+
+  isRunning() {
+    return (this.audioCtx.state === "running");
+  }
+  needsFeeding() {
+    return this.isRunning() | this.resumeScheduled > 0;
+  }
+
 }
 

@@ -9,6 +9,8 @@ import { AudioPlayer } from './AudioPlayer';
 let currentProject = structuredClone(examples[0]);
 
 const inputButtons = Array.from(document.querySelectorAll('#input-values button'));
+const audioButtonIndex = inputButtons.findIndex(e => e.innerHTML === "Audio");
+
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
@@ -74,7 +76,13 @@ const expectedFPS = 60;
 const sampleRate = 48_000*4;// @TODO: 192000 high sampleRate might not be supported on all platforms
                             // downsample to 48000 inside the AudioResamplerProcessor
                             // Empirically higher sampling rate helps with occasional high pitch noise.
-const audioPlayer = new AudioPlayer(sampleRate, expectedFPS);
+const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
+  if (audioPlayer.isRunning())
+    inputButtons[audioButtonIndex].classList.add('active');
+  else
+    inputButtons[audioButtonIndex].classList.remove('active');
+});
+let enableAudioUpdate = audioPlayer.needsFeeding();
 
 const vgaClockRate = 25_175_000;
 const ticksPerSample = vgaClockRate / sampleRate;
@@ -89,6 +97,9 @@ let sampleQueueForLowPassFiter = new Float32Array(lowPassFilterSize);
 let sampleQueueIndex = 0;
 
 function updateAudio() {
+  if (!enableAudioUpdate)
+    return;
+
   audioSample += getAudioSignal();
   if (++audioTickCounter < ticksPerSample)
     return;
@@ -138,6 +149,8 @@ editor.onDidChangeModelContent(async () => {
     jmod.dispose();
   }
   inputButtons.map((b) => b.classList.remove('active'));
+  if (audioPlayer.isRunning())
+    inputButtons[audioButtonIndex].classList.add('active');
   jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
   await jmod.init();
   reset();
@@ -177,6 +190,7 @@ function animationFrame(now: number) {
     return;
   }
 
+  enableAudioUpdate = audioPlayer.needsFeeding();
   const data = new Uint8Array(imageData.data.buffer);
   frameLoop: for (let y = 0; y < 520; y++) {
     waitFor(() => !getVGASignals().hsync);
@@ -235,7 +249,10 @@ document.querySelector('#download-button')?.addEventListener('click', () => {
 
 function toggleButton(index: number) {
   if (index === 8) {
-    audioPlayer.resume();
+    if (audioPlayer.isRunning())
+      audioPlayer.suspend();
+    else
+      audioPlayer.resume();
     return;
   }
   const bit = 1 << index;
