@@ -3,6 +3,7 @@ export class FPSCounter {
   private index = 0;
   private lastTime = -1;
   private pauseTime = -1;
+  readonly fps = 0;
 
   constructor() {}
 
@@ -18,6 +19,12 @@ export class FPSCounter {
       this.samples[this.index++ % this.samples.length] = time - this.lastTime;
     }
     this.lastTime = time;
+
+    if (this.index > 0) {
+      const slice = this.samples.slice(0, this.index);
+      const avgDelta = slice.reduce((a, b) => a + b, 0) / slice.length;
+      this.fps = 1000 / avgDelta;
+    }
   }
 
   pause(time: number) {
@@ -34,12 +41,6 @@ export class FPSCounter {
   }
 
   getFPS() {
-    if (this.index === 0) {
-      // Not enough data yet
-      return 0;
-    }
-    const slice = this.samples.slice(0, this.index);
-    const avgDelta = slice.reduce((a, b) => a + b, 0) / slice.length;
-    return 1000 / avgDelta;
+    return this.fps;
   }
 }
