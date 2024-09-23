@@ -1,4 +1,7 @@
 /*
+ * Music from "Drop" demo.
+ * Full version: https://github.com/rejunity/tt08-vga-drop
+ *
  * Copyright (c) 2024 Renaldas Zioma, Erik Hemming
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -111,40 +114,39 @@ module tt_um_vga_example(
     .hpos(x),
     .vpos(y)
   );
-    
-  // reg [19:0] lfsr; 
-  // wire feedback = lfsr[19] ^ lfsr[15] ^ lfsr[11] ^ lfsr[5] ^ lfsr[4] ^ lfsr[3] + 1;
+
+  wire [2:0] part = frame_counter[10-:3];
+  wire [12:0] timer = frame_counter;
+  reg noise, noise_src = ^lfsr;
+  reg [2:0] noise_counter;
+
+  // envelopes
+  wire [4:0] envelopeA = 5'd31 - timer[4:0];  // exp(t*-10) decays to 0 approximately in 32 frames  [255 215 181 153 129 109  92  77  65  55  46  39  33  28  23  20  16  14 12  10   8   7   6   5   4   3   3   2   2]
+  wire [4:0] envelopeB = 5'd31 - timer[3:0]*2;// exp(t*-20) decays to 0 approximately in 16 frames  [255 181 129  92  65  46  33  23  16  12   8   6   4   3]
+  wire beats_1_3 = timer[5:4] == 2'b10;
+
+  // kick wave
+  wire square60hz =  y < 262;                 // standing 60Hz square wave
+
+  // snare noise    
   reg [12:0] lfsr;
   wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
   always @(posedge clk) begin
     lfsr <= {lfsr[11:0], feedback};
   end
 
-  // music
-  wire [2:0] part = frame_counter[9-:3];
-  wire [12:0] timer = {frame_counter, frame_counter_frac};
-  reg noise, noise_src = ^lfsr;
-  reg [2:0] noise_counter;
+  // lead wave counter
+  reg [7:0] note_freq;
+  reg [7:0] note_counter;
+  reg       note;
 
-  wire square60hz =  y < 262;                 // 60Hz square wave
-  wire square120hz = y[7];                    // 120Hz square wave
-  wire square240hz = y[6];                    // 240Hz square wave
-  wire square480hz = y[5];                    // 480Hz square wave
-  wire [4:0] envelopeA = 5'd31 - timer[4:0];  // exp(t*-10) decays to 0 approximately in 32 frames  [255 215 181 153 129 109  92  77  65  55  46  39  33  28  23  20  16  14 12  10   8   7   6   5   4   3   3   2   2]
-  wire [4:0] envelopeB = 5'd31 - timer[3:0]*2;// exp(t*-20) decays to 0 approximately in 16 frames  [255 181 129  92  65  46  33  23  16  12   8   6   4   3]
-  wire       envelopeP8 = (|timer[3:2])*5'd31;// pulse for 8 frames
-  wire beats_1_3 = timer[5:4] == 2'b10;
-
-  // melody notes (in hsync): 151  26  40  60 _ 90 143  23  35
-  // (x1.5 wrap-around progression)
+  // bass wave counter
   reg [8:0] note2_freq;
   reg [8:0] note2_counter;
   reg       note2;
 
-  reg [7:0] note_freq;
-  reg [7:0] note_counter;
-  reg       note;
-  wire [3:0] note_in = timer[7-:4];           // 8 notes, 32 frames per note each. 256 frames total, ~4 seconds
+  // lead notes
+  wire [3:0] note_in = timer[7-:4];           // 16 notes, 16 frames per note each. 256 frames total, ~4 seconds
   always @(note_in)
   case(note_in)
       4'd0 : note_freq = `E2
@@ -165,6 +167,7 @@ module tt_um_vga_example(
       4'd15: note_freq = `E3
   endcase
 
+  // bass notes
   wire [2:0] note2_in = timer[8-:3];           // 8 notes, 32 frames per note each. 256 frames total, ~4 seconds
   always @(note2_in)
   case(note2_in)
@@ -178,19 +181,16 @@ module tt_um_vga_example(
       3'd7 : note2_freq = `Cs1
   endcase
 
-  // wire kick   = square60hz & (~|x[7:5] & x[4:0] < envelopeA);                 // 60Hz square wave with half second envelope
-  wire kick   = square60hz & (x < envelopeA*4);                 // 60Hz square wave with half second envelope
-  wire snare  = noise      & (x >= 128 && x < 128+envelopeB*4);   // noise with half second envelope
+  wire kick   = square60hz & (x < envelopeA*4);                   // 60Hz square wave with half second envelope
+  wire snare  = noise      & (x >= 128 && x < 128+envelopeB*4);   // noise with half a second envelope
   wire lead   = note       & (x >= 256 && x < 256+envelopeB*8);   // ROM square wave with quarter second envelope
   wire base   = note2      & (x >= 512 && x < ((beats_1_3)?(512+8*4):(512+32*4)));  
   assign sound = { kick | (snare & beats_1_3 & part != 0) | (base) | (lead & part > 2) };
 
   reg [11:0] frame_counter;
-  reg frame_counter_frac;
   always @(posedge clk) begin
     if (~rst_n) begin
       frame_counter <= 0;
-      frame_counter_frac <= 0;
       noise_counter <= 0;
       note_counter <= 0;
       note2_counter <= 0;
@@ -201,7 +201,7 @@ module tt_um_vga_example(
     end else begin
 
       if (x == 0 && y == 0) begin
-        {frame_counter, frame_counter_frac} <= {frame_counter,frame_counter_frac} + `MUSIC_SPEED;
+        frame_counter <= frame_counter + `MUSIC_SPEED;
       end
 
       // noise
