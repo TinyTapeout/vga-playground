@@ -73,9 +73,7 @@ function getAudioSignal() {
 }
 
 const expectedFPS = 60;
-const sampleRate = 48_000*4;// @TODO: 192000 high sampleRate might not be supported on all platforms
-                            // downsample to 48000 inside the AudioResamplerProcessor
-                            // Empirically higher sampling rate helps with occasional high pitch noise.
+const sampleRate = 192_000; // 192 kHz -- higher number gives a better quality
 const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
   if (audioPlayer.isRunning())
     inputButtons[audioButtonIndex].classList.add('active');
@@ -84,10 +82,10 @@ const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
 });
 let enableAudioUpdate = audioPlayer.needsFeeding();
 
-const vgaClockRate = 25_175_000;
+const vgaClockRate = 25_175_000; // 25.175 MHz -- VGA pixel clock
 const ticksPerSample = vgaClockRate / sampleRate;
 
-const lowPassFrequency = 20_000;
+const lowPassFrequency = 20_000; // 20 kHz -- Audio PMOD low pass filter
 const lowPassFilterSize = Math.ceil(sampleRate/lowPassFrequency);
 
 let audioTickCounter = 0;

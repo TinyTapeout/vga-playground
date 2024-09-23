@@ -111,9 +111,6 @@ class AudioResamplerProcessor extends AudioWorkletProcessor {
       const nextIntPos = intPos + 1;
       const frac = floatPos - intPos; // fractional part for interpolation
 
-      if ((this.readIndex + nextIntPos) % this.ringBufferSize == this.writeIndex)
-        console.log(i, frac, intPos, nextIntPos, playbackRate, 'req: ', samplesRequired, 'avail: ', samplesAvailable, ratio, samplesConsumed);
-
       // Resample with linear interpolation
       this.downsampleBuffer[i] = this.interpolate(this.ringBuffer,
         (this.readIndex + intPos) % this.ringBufferSize,
