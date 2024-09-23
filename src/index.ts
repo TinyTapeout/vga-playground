@@ -4,10 +4,13 @@ import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import { compileVerilator } from './verilator/compile';
+import { AudioPlayer } from './AudioPlayer';
 
 let currentProject = structuredClone(examples[0]);
 
 const inputButtons = Array.from(document.querySelectorAll('#input-values button'));
+const audioButtonIndex = inputButtons.findIndex(e => e.innerHTML === "Audio");
+
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
@@ -33,6 +36,8 @@ let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CON
 await jmod.init();
 
 const uo_out_offset_in_jmod_databuf = jmod.globals.lookup("uo_out").offset;
+const uio_out_offset_in_jmod_databuf = jmod.globals.lookup("uio_out").offset;
+const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup("uio_oe").offset;
 
 function reset() {
   const ui_in = jmod.state.ui_in;
@@ -58,6 +63,56 @@ function getVGASignals() {
     g: ((uo_out & 0b00000010) << 0) | ((uo_out & 0b00100000) >> 5),
     b: ((uo_out & 0b00000100) >> 1) | ((uo_out & 0b01000000) >> 6),
   };
+}
+
+function getAudioSignal() {
+  // see getVGASignals() implementation above for explanation about use of jmod.data8
+  const uio_out = jmod.data8[uio_out_offset_in_jmod_databuf];
+  const uio_oe = jmod.data8[uio_oe_offset_in_jmod_databuf];
+  return (uio_out & uio_oe) >> 7;
+}
+
+const expectedFPS = 60;
+const sampleRate = 192_000; // 192 kHz -- higher number gives a better quality
+const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
+  if (audioPlayer.isRunning())
+    inputButtons[audioButtonIndex].classList.add('active');
+  else
+    inputButtons[audioButtonIndex].classList.remove('active');
+});
+let enableAudioUpdate = audioPlayer.needsFeeding();
+
+const vgaClockRate = 25_175_000; // 25.175 MHz -- VGA pixel clock
+const ticksPerSample = vgaClockRate / sampleRate;
+
+const lowPassFrequency = 20_000; // 20 kHz -- Audio PMOD low pass filter
+const lowPassFilterSize = Math.ceil(sampleRate/lowPassFrequency);
+
+let audioTickCounter = 0;
+let audioSample = 0;
+
+let sampleQueueForLowPassFiter = new Float32Array(lowPassFilterSize);
+let sampleQueueIndex = 0;
+
+function updateAudio() {
+  if (!enableAudioUpdate)
+    return;
+
+  audioSample += getAudioSignal();
+  if (++audioTickCounter < ticksPerSample)
+    return;
+
+  const newSample = audioSample / ticksPerSample;
+
+  sampleQueueForLowPassFiter[sampleQueueIndex++] = newSample;
+  sampleQueueIndex %= lowPassFilterSize;
+  let filteredSample = sampleQueueForLowPassFiter[0];
+  for (let i = 1; i < lowPassFilterSize; i++)
+    filteredSample += sampleQueueForLowPassFiter[i];
+
+  audioPlayer.feed(filteredSample / lowPassFilterSize, fpsCounter.getFPS());
+  audioTickCounter = 0;
+  audioSample = 0;
 }
 
 let stopped = false;
@@ -92,6 +147,8 @@ editor.onDidChangeModelContent(async () => {
     jmod.dispose();
   }
   inputButtons.map((b) => b.classList.remove('active'));
+  if (audioPlayer.isRunning())
+    inputButtons[audioButtonIndex].classList.add('active');
   jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
   await jmod.init();
   reset();
@@ -103,11 +160,13 @@ const canvas = document.querySelector<HTMLCanvasElement>('#vga-canvas');
 const ctx = canvas?.getContext('2d');
 const imageData = ctx?.createImageData(736, 520);
 const fpsDisplay = document.querySelector('#fps-count');
+const audioLatencyDisplay = document.querySelector('#audio-latency-ms');
 
 function waitFor(condition: () => boolean, timeout = 10000) {
   let counter = 0;
   while (!condition() && counter < timeout) {
     jmod.tick2(1);
+    updateAudio();
     counter++;
   }
 }
@@ -121,16 +180,22 @@ function animationFrame(now: number) {
     fpsDisplay.textContent = `${fpsCounter.getFPS().toFixed(0)}`;
   }
 
+  if (audioLatencyDisplay) {
+    audioLatencyDisplay.textContent = `${audioPlayer.latencyInMilliseconds.toFixed(0)}`
+  }
+
   if (stopped || !imageData || !ctx) {
     return;
   }
 
+  enableAudioUpdate = audioPlayer.needsFeeding();
   const data = new Uint8Array(imageData.data.buffer);
   frameLoop: for (let y = 0; y < 520; y++) {
     waitFor(() => !getVGASignals().hsync);
     for (let x = 0; x < 736; x++) {
       const offset = (y * 736 + x) * 4;
       jmod.tick2(1);
+      updateAudio();
       const { hsync, vsync, r, g, b } = getVGASignals();
       if (hsync) {
         break;
@@ -181,6 +246,13 @@ document.querySelector('#download-button')?.addEventListener('click', () => {
 });
 
 function toggleButton(index: number) {
+  if (index === audioButtonIndex) {
+    if (audioPlayer.isRunning())
+      audioPlayer.suspend();
+    else
+      audioPlayer.resume();
+    return;
+  }
   const bit = 1 << index;
   jmod.state.ui_in = jmod.state.ui_in ^ bit;
   if (jmod.state.ui_in & bit) {
