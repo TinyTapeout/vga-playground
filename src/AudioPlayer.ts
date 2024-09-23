@@ -37,9 +37,13 @@ export class AudioPlayer {
 
   readonly latencyInMilliseconds = 0.0;
   handleMessage(event) {
+    const getEffectiveLatency = (audioContext) => {
+      return audioContext.outputLatency || audioContext.baseLatency || 0;
+    }
+
     const samplesInBuffer = event.data[0];
     this.latencyInMilliseconds = samplesInBuffer / this.sampleRate * 1000.0;
-    this.latencyInMilliseconds += this.audioCtx.outputLatency * 1000.0;
+    this.latencyInMilliseconds += getEffectiveLatency(this.audioCtx) * 1000.0;
 
     const bufferOccupancy = event.data[1];
     if (this.resumeScheduled && bufferOccupancy > 0.25) // resume playback once resampler's
