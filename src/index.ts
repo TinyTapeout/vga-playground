@@ -246,7 +246,7 @@ document.querySelector('#download-button')?.addEventListener('click', () => {
 });
 
 function toggleButton(index: number) {
-  if (index === 8) {
+  if (index === audioButtonIndex) {
     if (audioPlayer.isRunning())
       audioPlayer.suspend();
     else
