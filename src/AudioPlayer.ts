@@ -6,8 +6,20 @@ export class AudioPlayer {
   private audioCtx : AudioContext;
   private resamplerNode : AudioWorkletNode;
 
-  constructor(private readonly sampleRate: number, private readonly fps: number, stateListener = null, private readonly bufferSize: number = 200) {
+  private downsampleIntFactor = 1;
+  private downsampleFracFactor = 1;
+
+  constructor(private readonly sampleRate: number,
+              private readonly fps: number,
+              stateListener = null,
+              private readonly bufferSize: number = 200) {
     this.audioCtx = new AudioContext({sampleRate:sampleRate, latencyHint:'interactive'});
+    // Optional downsampling is used in case when audio context does not support 192 kHz
+    //                for example when context playback rate is 44.1 kHz:
+    this.downsampleFracFactor = sampleRate / this.audioCtx.sampleRate;// 4.35 = 192_000 / 44_100
+    this.downsampleIntFactor = Math.floor(this.downsampleFracFactor); // 4
+    this.downsampleFracFactor /= this.downsampleIntFactor;            // 1.088 ~~ 48_000 / 44_100
+
     this.audioCtx.audioWorklet.addModule(new URL('/resampler.js', import.meta.url)).then(() => {
 
       this.resamplerNode = new AudioWorkletNode(this.audioCtx, 'resampler');
@@ -47,7 +59,8 @@ export class AudioPlayer {
         this.resamplerNode.port.postMessage({
           type: 'samples',
           samples: this.buffer,
-          fps: current_fps,
+          fps: current_fps * this.downsampleFracFactor,
+          downsampleFactor: this.downsampleIntFactor,
         });
       }
       this.writeIndex = 0;
