@@ -29,19 +29,13 @@ module tt_um_vga_example(
 
   // TinyVGA PMOD
   assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
-  assign uio_out = {sound, 7'b0};
 
   // Unused outputs assigned to 0.
-  assign uio_oe  = 8'hff;
+  assign uio_out = 0;
+  assign uio_oe  = 0;
 
   // Suppress unused signals warning
   wire _unused_ok = &{ena, ui_in, uio_in};
-
-  reg [15:0] counter2;
-  assign sound = counter2[14];  
-  always @(posedge clk) begin
-    counter2 <= counter2 + 1;
-  end
 
   reg [9:0] counter;
 
