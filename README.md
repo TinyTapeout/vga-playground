@@ -1,8 +1,8 @@
 # Tiny Tapeout VGA Playground
 
-Online version: https://tinytapeout.github.io/vga-playground/
+Online version: https://vga-playground.com/
 
-Write an run verilog code to generate VGA signals in the browser, then manufacture your project with [Tiny Tapeout](https://tinytapeout.com/).
+Write and run verilog code to generate VGA signals in the browser, then manufacture your project with [Tiny Tapeout](https://tinytapeout.com/).
 
 ## Development
 
