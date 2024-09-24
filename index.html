@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VGA Playground</title>
+    <meta
+      name="description"
+      content="Free online Verilog + VGA playground from Tiny Tapeout. Write your own VGA code and see it run in real-time on the screen."
+    />
+    <meta property="og:image" content="https://vga-playground.com/images/social-preview.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link href="https://cdn.jsdelivr.net/npm/reset-css@5.0.2/reset.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="src/index.css" />
   </head>
@@ -43,7 +52,9 @@
       <div id="code-editor"></div>
       <div id="vga-canvas-container">
         <div>
-          <span id="audio-latency-display">Audio latency: <span id="audio-latency-ms">00</span> ms </span>
+          <span id="audio-latency-display"
+            >Audio latency: <span id="audio-latency-ms">00</span> ms
+          </span>
           <span id="fps-display">FPS: <span id="fps-count">00</span></span>
         </div>
         <div id="input-values">
