@@ -27,6 +27,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      BASE_PATH: ${{ vars.BASE_PATH || '/vga-playground' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: npm run build -- --base /vga-playground
+        run: npm run build -- --base $BASE_PATH
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
