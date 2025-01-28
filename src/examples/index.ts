@@ -6,5 +6,6 @@ import { conway } from './conway';
 import { checkers } from './checkers';
 import { drop } from './drop';
 import { music } from './music';
+import { gaming } from './gaming';
 
-export const examples: Project[] = [music, stripes, balls, logo, conway, checkers, drop];
+export const examples: Project[] = [music, stripes, balls, logo, conway, checkers, drop, gaming];
