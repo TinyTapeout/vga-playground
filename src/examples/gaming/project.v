@@ -7,10 +7,10 @@
 
 `default_nettype none
 
-module tt_um_gaming_pmod_demo #(
-  parameter UI_IN_INDEX_LATCH = 3,
-  parameter UI_IN_INDEX_CLOCK = 4,
-  parameter UI_IN_INDEX_DATA  = 5
+module tt_um_vga_example #(
+  parameter UI_IN_INDEX_LATCH = 4,
+  parameter UI_IN_INDEX_CLOCK = 5,
+  parameter UI_IN_INDEX_DATA  = 6
 ) (
   input  wire [7:0] ui_in,    // Dedicated inputs
   output wire [7:0] uo_out,   // Dedicated outputs
