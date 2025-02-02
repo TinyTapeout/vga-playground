@@ -309,9 +309,11 @@ gamepadPmodInputButtons.forEach((button) => {
   const index = parseInt(button.dataset.index!, 10);
   const mouseDown = () => {
     gamepadPmodValue = gamepadPmodValue | (1 << index);
+    button.classList.add('active');
   };
   const mouseUp = () => {
     gamepadPmodValue = gamepadPmodValue & ~(1 << index);
+    button.classList.remove('active');
   };
   button.addEventListener('mousedown', mouseDown);
   button.addEventListener('pointerdown', mouseDown);
