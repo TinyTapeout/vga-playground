@@ -127,7 +127,7 @@ function updateGamepadPmod() {
   const dataReg = gamepadPmodValue << 12; // the lower 12 bits are for a second game controller
   const pulses = 24;
   const clock = cycle < pulses * 2 ? cycle % 2 : 0;
-  const dataIndex = cycle < pulses * 2 ? (cycle - 2) >> 1 : 0;
+  const dataIndex = cycle < pulses * 2 + 1 ? (cycle - 1) >> 1 : 0;
   const data = (dataReg >> dataIndex) & 1;
   const latch = cycle === pulses * 2 + 1 ? 1 : 0;
   const gamepadPmodPins = (data << 6) | (clock << 5) | (latch << 4);

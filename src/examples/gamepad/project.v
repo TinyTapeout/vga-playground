@@ -356,10 +356,13 @@ module gamepad_pmod_driver #(
       pmod_clk_prev   <= pmod_clk_sync[1];
       pmod_latch_prev <= pmod_latch_sync[1];
 
-      if (pmod_latch_prev & ~pmod_latch_sync[1]) begin
+      // Capture data on rising edge of pmod_latch:
+      if (pmod_latch_sync[1] & ~pmod_latch_prev) begin
         data_reg <= shift_reg;
       end
-      if (pmod_clk_prev & ~pmod_clk_sync[1]) begin
+
+      // Sample data on falling edge of pmod_clk:
+      if (~pmod_clk_sync[1] & pmod_clk_prev) begin
         shift_reg <= {shift_reg[BIT_WIDTH-2:0], pmod_data_sync[1]};
       end
     end
