@@ -12,14 +12,14 @@ const inputButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('#input-values button')
 );
 const audioButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'audio');
-const gamingButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'gaming');
-let enableGamingPmod = false;
-let gamingPmodValue = 0;
-const gamingPmodInputMask = 0b01110000;
-const gamingPmodInputPins = [4, 5, 6];
-const gamingPmodInputDiv = document.getElementById('gaming-pmod-inputs');
-const gamingPmodInputButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>('#gaming-pmod-inputs button')
+const gamepadButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'gamepad');
+let enableGamepadPmod = false;
+let gamepadPmodValue = 0;
+const gamepadPmodInputMask = 0b01110000;
+const gamepadPmodInputPins = [4, 5, 6];
+const gamepadPmodInputDiv = document.getElementById('gamepad-pmod-inputs');
+const gamepadPmodInputButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('#gamepad-pmod-inputs button')
 );
 
 const codeEditorDiv = document.getElementById('code-editor');
@@ -120,18 +120,18 @@ function updateAudio() {
   audioSample = 0;
 }
 
-let gamingPmodCounter = 0;
-function updateGamingPmod() {
-  if (!enableGamingPmod) return;
-  const cycle = gamingPmodCounter++ % 400;
-  const dataReg = gamingPmodValue << 12; // the lower 12 bits are for a second game controller
+let gamepadPmodCounter = 0;
+function updateGamepadPmod() {
+  if (!enableGamepadPmod) return;
+  const cycle = gamepadPmodCounter++ % 400;
+  const dataReg = gamepadPmodValue << 12; // the lower 12 bits are for a second game controller
   const pulses = 24;
   const clock = cycle < pulses * 2 ? cycle % 2 : 0;
   const dataIndex = cycle < pulses * 2 ? (cycle - 2) >> 1 : 0;
   const data = (dataReg >> dataIndex) & 1;
   const latch = cycle === pulses * 2 + 1 ? 1 : 0;
-  const gamingPmodPins = (data << 6) | (clock << 5) | (latch << 4);
-  jmod.state.ui_in = (jmod.state.ui_in & ~gamingPmodInputMask) | gamingPmodPins;
+  const gamepadPmodPins = (data << 6) | (clock << 5) | (latch << 4);
+  jmod.state.ui_in = (jmod.state.ui_in & ~gamepadPmodInputMask) | gamepadPmodPins;
 }
 
 let stopped = false;
@@ -210,7 +210,7 @@ function animationFrame(now: number) {
   const data = new Uint8Array(imageData.data.buffer);
   frameLoop: for (let y = 0; y < 520; y++) {
     waitFor(() => !getVGASignals().hsync);
-    updateGamingPmod();
+    updateGamepadPmod();
     for (let x = 0; x < 736; x++) {
       const offset = (y * 736 + x) * 4;
       jmod.tick2(1);
@@ -270,17 +270,17 @@ function toggleButton(index: number) {
     else audioPlayer.resume();
     return;
   }
-  if (index === gamingButtonIndex) {
-    enableGamingPmod = !enableGamingPmod;
-    if (enableGamingPmod) {
-      inputButtons[gamingButtonIndex].classList.add('active');
+  if (index === gamepadButtonIndex) {
+    enableGamepadPmod = !enableGamepadPmod;
+    if (enableGamepadPmod) {
+      inputButtons[gamepadButtonIndex].classList.add('active');
     } else {
-      inputButtons[gamingButtonIndex].classList.remove('active');
+      inputButtons[gamepadButtonIndex].classList.remove('active');
     }
-    for (const pin of gamingPmodInputPins) {
-      inputButtons[pin].disabled = enableGamingPmod;
+    for (const pin of gamepadPmodInputPins) {
+      inputButtons[pin].disabled = enableGamepadPmod;
     }
-    gamingPmodInputDiv!.style.display = enableGamingPmod ? 'block' : 'none';
+    gamepadPmodInputDiv!.style.display = enableGamepadPmod ? 'block' : 'none';
     return;
   }
   const bit = 1 << index;
@@ -305,13 +305,13 @@ inputButtons.forEach((button, index) => {
   button.addEventListener('click', () => toggleButton(index));
 });
 
-gamingPmodInputButtons.forEach((button) => {
+gamepadPmodInputButtons.forEach((button) => {
   const index = parseInt(button.dataset.index!, 10);
   const mouseDown = () => {
-    gamingPmodValue = gamingPmodValue | (1 << index);
+    gamepadPmodValue = gamepadPmodValue | (1 << index);
   };
   const mouseUp = () => {
-    gamingPmodValue = gamingPmodValue & ~(1 << index);
+    gamepadPmodValue = gamepadPmodValue & ~(1 << index);
   };
   button.addEventListener('mousedown', mouseDown);
   button.addEventListener('pointerdown', mouseDown);
