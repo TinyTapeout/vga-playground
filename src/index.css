@@ -74,6 +74,7 @@ main {
   background: #333;
 }
 
-#input-values button.active {
+#input-values button.active,
+#gamepad-pmod-inputs button.active {
   background: #0f0;
 }

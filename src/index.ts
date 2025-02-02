@@ -8,9 +8,19 @@ import { AudioPlayer } from './AudioPlayer';
 
 let currentProject = structuredClone(examples[0]);
 
-const inputButtons = Array.from(document.querySelectorAll('#input-values button'));
-const audioButtonIndex = inputButtons.findIndex(e => e.innerHTML === "Audio");
-
+const inputButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('#input-values button')
+);
+const audioButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'audio');
+const gamepadButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'gamepad');
+let enableGamepadPmod = false;
+let gamepadPmodValue = 0;
+const gamepadPmodInputMask = 0b01110000;
+const gamepadPmodInputPins = [4, 5, 6];
+const gamepadPmodInputDiv = document.getElementById('gamepad-pmod-inputs');
+const gamepadPmodInputButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('#gamepad-pmod-inputs button')
+);
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
@@ -35,9 +45,9 @@ let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CON
 //let jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
 await jmod.init();
 
-const uo_out_offset_in_jmod_databuf = jmod.globals.lookup("uo_out").offset;
-const uio_out_offset_in_jmod_databuf = jmod.globals.lookup("uio_out").offset;
-const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup("uio_oe").offset;
+const uo_out_offset_in_jmod_databuf = jmod.globals.lookup('uo_out').offset;
+const uio_out_offset_in_jmod_databuf = jmod.globals.lookup('uio_out').offset;
+const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup('uio_oe').offset;
 
 function reset() {
   const ui_in = jmod.state.ui_in;
@@ -75,10 +85,8 @@ function getAudioSignal() {
 const expectedFPS = 60;
 const sampleRate = 192_000; // 192 kHz -- higher number gives a better quality
 const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
-  if (audioPlayer.isRunning())
-    inputButtons[audioButtonIndex].classList.add('active');
-  else
-    inputButtons[audioButtonIndex].classList.remove('active');
+  if (audioPlayer.isRunning()) inputButtons[audioButtonIndex].classList.add('active');
+  else inputButtons[audioButtonIndex].classList.remove('active');
 });
 let enableAudioUpdate = audioPlayer.needsFeeding();
 
@@ -86,7 +94,7 @@ const vgaClockRate = 25_175_000; // 25.175 MHz -- VGA pixel clock
 const ticksPerSample = vgaClockRate / sampleRate;
 
 const lowPassFrequency = 20_000; // 20 kHz -- Audio PMOD low pass filter
-const lowPassFilterSize = Math.ceil(sampleRate/lowPassFrequency);
+const lowPassFilterSize = Math.ceil(sampleRate / lowPassFrequency);
 
 let audioTickCounter = 0;
 let audioSample = 0;
@@ -95,24 +103,35 @@ let sampleQueueForLowPassFiter = new Float32Array(lowPassFilterSize);
 let sampleQueueIndex = 0;
 
 function updateAudio() {
-  if (!enableAudioUpdate)
-    return;
+  if (!enableAudioUpdate) return;
 
   audioSample += getAudioSignal();
-  if (++audioTickCounter < ticksPerSample)
-    return;
+  if (++audioTickCounter < ticksPerSample) return;
 
   const newSample = audioSample / ticksPerSample;
 
   sampleQueueForLowPassFiter[sampleQueueIndex++] = newSample;
   sampleQueueIndex %= lowPassFilterSize;
   let filteredSample = sampleQueueForLowPassFiter[0];
-  for (let i = 1; i < lowPassFilterSize; i++)
-    filteredSample += sampleQueueForLowPassFiter[i];
+  for (let i = 1; i < lowPassFilterSize; i++) filteredSample += sampleQueueForLowPassFiter[i];
 
   audioPlayer.feed(filteredSample / lowPassFilterSize, fpsCounter.getFPS());
   audioTickCounter = 0;
   audioSample = 0;
+}
+
+let gamepadPmodCounter = 0;
+function updateGamepadPmod() {
+  if (!enableGamepadPmod) return;
+  const cycle = gamepadPmodCounter++ % 400;
+  const dataReg = gamepadPmodValue << 12; // the lower 12 bits are for a second game controller
+  const pulses = 24;
+  const clock = cycle < pulses * 2 ? cycle % 2 : 0;
+  const dataIndex = cycle < pulses * 2 + 1 ? (cycle - 1) >> 1 : 0;
+  const data = (dataReg >> dataIndex) & 1;
+  const latch = cycle === pulses * 2 + 1 ? 1 : 0;
+  const gamepadPmodPins = (data << 6) | (clock << 5) | (latch << 4);
+  jmod.state.ui_in = (jmod.state.ui_in & ~gamepadPmodInputMask) | gamepadPmodPins;
 }
 
 let stopped = false;
@@ -147,8 +166,7 @@ editor.onDidChangeModelContent(async () => {
     jmod.dispose();
   }
   inputButtons.map((b) => b.classList.remove('active'));
-  if (audioPlayer.isRunning())
-    inputButtons[audioButtonIndex].classList.add('active');
+  if (audioPlayer.isRunning()) inputButtons[audioButtonIndex].classList.add('active');
   jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
   await jmod.init();
   reset();
@@ -181,7 +199,7 @@ function animationFrame(now: number) {
   }
 
   if (audioLatencyDisplay) {
-    audioLatencyDisplay.textContent = `${audioPlayer.latencyInMilliseconds.toFixed(0)}`
+    audioLatencyDisplay.textContent = `${audioPlayer.latencyInMilliseconds.toFixed(0)}`;
   }
 
   if (stopped || !imageData || !ctx) {
@@ -192,6 +210,7 @@ function animationFrame(now: number) {
   const data = new Uint8Array(imageData.data.buffer);
   frameLoop: for (let y = 0; y < 520; y++) {
     waitFor(() => !getVGASignals().hsync);
+    updateGamepadPmod();
     for (let x = 0; x < 736; x++) {
       const offset = (y * 736 + x) * 4;
       jmod.tick2(1);
@@ -247,10 +266,21 @@ document.querySelector('#download-button')?.addEventListener('click', () => {
 
 function toggleButton(index: number) {
   if (index === audioButtonIndex) {
-    if (audioPlayer.isRunning())
-      audioPlayer.suspend();
-    else
-      audioPlayer.resume();
+    if (audioPlayer.isRunning()) audioPlayer.suspend();
+    else audioPlayer.resume();
+    return;
+  }
+  if (index === gamepadButtonIndex) {
+    enableGamepadPmod = !enableGamepadPmod;
+    if (enableGamepadPmod) {
+      inputButtons[gamepadButtonIndex].classList.add('active');
+    } else {
+      inputButtons[gamepadButtonIndex].classList.remove('active');
+    }
+    for (const pin of gamepadPmodInputPins) {
+      inputButtons[pin].disabled = enableGamepadPmod;
+    }
+    gamepadPmodInputDiv!.style.display = enableGamepadPmod ? 'block' : 'none';
     return;
   }
   const bit = 1 << index;
@@ -273,4 +303,20 @@ document.addEventListener('keydown', (e) => {
 
 inputButtons.forEach((button, index) => {
   button.addEventListener('click', () => toggleButton(index));
+});
+
+gamepadPmodInputButtons.forEach((button) => {
+  const index = parseInt(button.dataset.index!, 10);
+  const mouseDown = () => {
+    gamepadPmodValue = gamepadPmodValue | (1 << index);
+    button.classList.add('active');
+  };
+  const mouseUp = () => {
+    gamepadPmodValue = gamepadPmodValue & ~(1 << index);
+    button.classList.remove('active');
+  };
+  button.addEventListener('mousedown', mouseDown);
+  button.addEventListener('pointerdown', mouseDown);
+  button.addEventListener('mouseup', mouseUp);
+  button.addEventListener('pointerup', mouseUp);
 });
