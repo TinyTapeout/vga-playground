@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Pat Deegan
- * https://psychogenic.com
+ * Copyright (c) 2025 Pat Deegan, https://psychogenic.com
  * SPDX-License-Identifier: Apache-2.0
+ * Version: 1.0.0
  *
  * Interfacing code for the Gamepad Pmod from Psycogenic Technologies,
  * designed for Tiny Tapeout.
@@ -79,8 +79,14 @@ module gamepad_pmod_driver #(
 
   always @(posedge clk) begin
     if (~rst_n) begin
-      shift_reg <= 0;
-      data_reg <= 0;
+      /* Initialize data and shift registers to all 1s so they're detected as "not present".
+       * This accounts for cases where we have:
+       *  - setup for 2 controllers;
+       *  - only a single controller is connected; and
+       *  - the driver in those cases only sends bits for a single controller.
+       */
+      data_reg <= {BIT_WIDTH{1'b1}};
+      shift_reg <= {BIT_WIDTH{1'b1}};
       pmod_clk_prev <= 1'b0;
       pmod_latch_prev <= 1'b0;
     end
@@ -93,8 +99,8 @@ module gamepad_pmod_driver #(
         data_reg <= shift_reg;
       end
 
-      // Sample data on falling edge of pmod_clk:
-      if (~pmod_clk_sync[1] & pmod_clk_prev) begin
+      // Sample data on rising edge of pmod_clk:
+      if (pmod_clk_sync[1] & ~pmod_clk_prev) begin
         shift_reg <= {shift_reg[BIT_WIDTH-2:0], pmod_data_sync[1]};
       end
     end
