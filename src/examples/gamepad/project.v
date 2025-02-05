@@ -26,11 +26,10 @@ module tt_um_vga_example (
   wire [9:0] pix_x;
   wire [9:0] pix_y;
 
-  // TinyVGA Pmod
+  // Tiny VGA Pmod
   assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
 
-  // Game controller
-  wire [11:0] gamepad_pmod_data;
+  // Gamepad Pmod
   wire inp_b, inp_y, inp_select, inp_start, inp_up, inp_down, inp_left, inp_right, inp_a, inp_x, inp_l, inp_r;
 
   hvsync_generator vga_sync_gen (
