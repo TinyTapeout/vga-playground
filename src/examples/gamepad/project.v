@@ -16,6 +16,13 @@ module tt_um_vga_example (
     input  wire       rst_n     // reset_n - low to reset
 );
 
+  // Unused outputs assigned to 0.
+  assign uio_out = 0;
+  assign uio_oe  = 0;
+
+  // Suppress unused signals warning
+  wire _unused_ok = &{ena, ui_in[7], ui_in[4:0], uio_in};
+
   // VGA signals
   wire hsync;
   wire vsync;
@@ -29,9 +36,6 @@ module tt_um_vga_example (
   // Tiny VGA Pmod
   assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
 
-  // Gamepad Pmod
-  wire inp_b, inp_y, inp_select, inp_start, inp_up, inp_down, inp_left, inp_right, inp_a, inp_x, inp_l, inp_r;
-
   hvsync_generator vga_sync_gen (
       .clk(clk),
       .reset(~rst_n),
@@ -41,6 +45,9 @@ module tt_um_vga_example (
       .hpos(pix_x),
       .vpos(pix_y)
   );
+
+  // Gamepad Pmod
+  wire inp_b, inp_y, inp_select, inp_start, inp_up, inp_down, inp_left, inp_right, inp_a, inp_x, inp_l, inp_r;
 
   gamepad_pmod_single driver (
       // Inputs:
