@@ -26,7 +26,7 @@ function escapeXML(s: string): string {
 export function parseXMLPoorly(
   s: string,
   openfn?: XMLVisitFunction,
-  closefn?: XMLVisitFunction
+  closefn?: XMLVisitFunction,
 ): XMLNode {
   const tag_re = /[<]([/]?)([?a-z_-]+)([^>]*)[>]+|(\s*[^<]+)/gi;
   const attr_re = /\s*(\w+)="(.*?)"\s*/gi;

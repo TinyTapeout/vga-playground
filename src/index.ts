@@ -9,7 +9,7 @@ import { compileVerilator } from './verilator/compile';
 let currentProject = structuredClone(examples[0]);
 
 const inputButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>('#input-values button')
+  document.querySelectorAll<HTMLButtonElement>('#input-values button'),
 );
 const audioButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'audio');
 const gamepadButtonIndex = inputButtons.findIndex((e) => e.dataset.role === 'gamepad');
@@ -19,10 +19,10 @@ const gamepadPmodInputMask = 0b01110000;
 const gamepadPmodInputPins = [4, 5, 6];
 const gamepadPmodInputDiv = document.getElementById('gamepad-pmod-inputs');
 const gamepadPmodInputButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>('#gamepad-pmod-inputs button')
+  document.querySelectorAll<HTMLButtonElement>('#gamepad-pmod-inputs button'),
 );
 const gamepadPmodInputButtonsMap = new Map(
-  gamepadPmodInputButtons.map((b) => [parseInt(b.dataset.index!, 10), b])
+  gamepadPmodInputButtons.map((b) => [parseInt(b.dataset.index!, 10), b]),
 );
 const gamepadPmodKeys = {
   a: 8,
@@ -174,7 +174,7 @@ editor.onDidChangeModelContent(async () => {
       endColumn: e.endColumn ?? 999,
       message: e.message,
       severity: e.type === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
-    }))
+    })),
   );
   if (!res.output) {
     return;

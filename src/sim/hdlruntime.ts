@@ -269,12 +269,12 @@ export class HDLModuleJS implements HDLModuleRunner {
             return `if (${this.expr2js(e.cond, { cond: true })}) { ${this.expr2js(e.left)} }`;
           else
             return `if (${this.expr2js(e.cond, { cond: true })}) { ${this.expr2js(
-              e.left
+              e.left,
             )} } else { ${this.expr2js(e.right)} }`;
         case 'cond':
         case 'condbound':
           return `(${this.expr2js(e.cond, { cond: true })} ? ${this.expr2js(
-            e.left
+            e.left,
           )} : ${this.expr2js(e.right)})`;
         default:
           throw new HDLError(e, `unknown triop ${e.op}`);
@@ -294,7 +294,7 @@ export class HDLModuleJS implements HDLModuleRunner {
           // __req |= ((vlTOPp->control_test_top__02Ehsync ^ vlTOPp->__Vchglast__TOP__control_test_top__02Ehsync)
           // vlTOPp->__Vchglast__TOP__control_test_top__02Ehsync = vlTOPp->control_test_top__02Ehsync;
           return `$$req |= (${this.expr2js(e.left)} ^ ${this.expr2js(e.right)}); ${this.expr2js(
-            e.right
+            e.right,
           )} = ${this.expr2js(e.left)}`;
         default:
           var jsop = OP2JS[e.op];
@@ -345,7 +345,7 @@ export class HDLModuleJS implements HDLModuleRunner {
       return body;
     } else if (isWhileop(e)) {
       return `for (${this.expr2js(e.precond)}; ${this.expr2js(e.loopcond)}; ${this.expr2js(
-        e.inc
+        e.inc,
       )}) { ${this.expr2js(e.body)} }`;
     } else if (isFuncCall(e)) {
       if ((e.funcname == '$stop' || e.funcname == '$finish') && e.$loc) {

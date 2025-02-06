@@ -160,7 +160,7 @@ class Struct {
     size: number,
     itype?: number,
     hdltype?: HDLDataType,
-    isParam?: boolean
+    isParam?: boolean,
   ): StructRec {
     this.alignTo(getAlignmentForSize(size));
     // pointers are 32 bits, so if size > 8 it's a pointer
@@ -375,7 +375,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (membytes > this.maxMemoryMB * 1024 * 1024)
       throw new HDLError(
         null,
-        `cannot allocate ${membytes} bytes, limit is ${this.maxMemoryMB} MB`
+        `cannot allocate ${membytes} bytes, limit is ${this.maxMemoryMB} MB`,
       );
     var memblks = Math.ceil(membytes / 65536);
     this.bmod.setMemory(memblks, memblks, MEMORY); // memory is in 64k chunks
@@ -603,7 +603,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
         } else {
           throw new HDLError(
             e,
-            `non-const expr in initarray (multidimensional arrays not supported)`
+            `non-const expr in initarray (multidimensional arrays not supported)`,
           );
         }
       }
@@ -641,35 +641,35 @@ export class HDLModuleWASM implements HDLModuleRunner {
       'builtins',
       '$finish',
       binaryen.createType([binaryen.i32]),
-      binaryen.none
+      binaryen.none,
     );
     this.bmod.addFunctionImport(
       '$stop_0',
       'builtins',
       '$stop',
       binaryen.createType([binaryen.i32]),
-      binaryen.none
+      binaryen.none,
     );
     this.bmod.addFunctionImport(
       '$time_0',
       'builtins',
       '$time',
       binaryen.createType([binaryen.i32]),
-      binaryen.i64
+      binaryen.i64,
     );
     this.bmod.addFunctionImport(
       '$rand_0',
       'builtins',
       '$rand',
       binaryen.createType([binaryen.i32]),
-      binaryen.i32
+      binaryen.i32,
     );
     this.bmod.addFunctionImport(
       '$readmem_2',
       'builtins',
       '$readmem',
       binaryen.createType([binaryen.i32, binaryen.i32, binaryen.i32]),
-      binaryen.none
+      binaryen.none,
     );
   }
 
@@ -753,7 +753,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
             m.local.set(2, m.i32.add(m.local.get(2, i32), m.i32.const(8))),
             m.local.set(1, m.i32.sub(m.local.get(1, i32), m.i32.const(8))),
             this.bmod.br_if(l_loop, m.local.get(1, i32)),
-          ])
+          ]),
         ),
         // TRACEOFS += TRACERECLEN
         m.i32.store(
@@ -762,20 +762,20 @@ export class HDLModuleWASM implements HDLModuleRunner {
           m.i32.const(o_TRACEOFS),
           m.i32.add(
             m.i32.load(0, 4, m.i32.const(o_TRACEOFS)),
-            m.i32.load(0, 4, m.i32.const(o_TRACERECLEN))
-          )
+            m.i32.load(0, 4, m.i32.const(o_TRACERECLEN)),
+          ),
         ),
         // break if TRACEOFS < TRACEEND
         m.br_if(
           l_block,
           m.i32.lt_u(
             m.i32.load(0, 4, m.i32.const(o_TRACEOFS)),
-            m.i32.load(0, 4, m.i32.const(o_TRACEEND))
-          )
+            m.i32.load(0, 4, m.i32.const(o_TRACEEND)),
+          ),
         ),
         // TRACEOFS = @TRACEBUF
         m.i32.store(0, 4, m.i32.const(o_TRACEOFS), m.i32.const(o_TRACEBUF)),
-      ])
+      ]),
     );
   }
 
@@ -802,10 +802,10 @@ export class HDLModuleWASM implements HDLModuleRunner {
             // goto @loop if ($1 = $1 - 1)
             m.br_if(
               l_loop,
-              m.local.tee(1, m.i32.sub(m.local.get(1, binaryen.i32), m.i32.const(1)), binaryen.i32)
+              m.local.tee(1, m.i32.sub(m.local.get(1, binaryen.i32), m.i32.const(1)), binaryen.i32),
             ),
-          ])
-        )
+          ]),
+        ),
       );
       m.addFunctionExport('tick2', 'tick2');
     } else {
@@ -819,7 +819,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       binaryen.createType([binaryen.i32]),
       binaryen.i32,
       [],
-      this.makeTickFuncBody(0)
+      this.makeTickFuncBody(0),
     );
     this.bmod.addFunctionExport('eval', 'eval');
   }
@@ -847,10 +847,10 @@ export class HDLModuleWASM implements HDLModuleRunner {
         this.bmod.if(
           this.bmod.call('_change_request', [dseg], binaryen.i32),
           this.makeTickFuncBody(count + 1),
-          this.bmod.return(this.bmod.local.get(0, binaryen.i32))
+          this.bmod.return(this.bmod.local.get(0, binaryen.i32)),
         ),
       ],
-      binaryen.i32
+      binaryen.i32,
     );
   }
 
@@ -1104,8 +1104,8 @@ export class HDLModuleWASM implements HDLModuleRunner {
         this.bmod.if(
           this.e2w(e.loopcond, { resulttype: binaryen.i32 }),
           this.bmod.nop(),
-          this.bmod.br(l_block) // exit loop
-        )
+          this.bmod.br(l_block), // exit loop
+        ),
       );
     }
     if (e.body) {
@@ -1153,7 +1153,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       }
       throw new HDLError(
         [tsrc, tdst],
-        `cannot cast ${tsrc.left}/${tsrc.signed} to ${tdst.left}/${tdst.signed}`
+        `cannot cast ${tsrc.left}/${tsrc.signed} to ${tdst.left}/${tdst.signed}`,
       );
     }
     throw new HDLError([tsrc, tdst], `cannot cast`);
@@ -1195,7 +1195,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       this.bmod.if(
         datainst.ne(left, right),
         this.bmod.local.set(req.index, this.bmod.i32.const(1)),
-        this.bmod.nop()
+        this.bmod.nop(),
       ),
       // ${this.expr2js(e.right)} = ${this.expr2js(e.left)}`
       this.assign2wasm(e.right, e.left),
