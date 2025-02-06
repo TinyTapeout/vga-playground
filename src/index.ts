@@ -99,9 +99,8 @@ function getAudioSignal() {
   return (uio_out & uio_oe) >> 7;
 }
 
-const expectedFPS = 60;
 const sampleRate = 192_000; // 192 kHz -- higher number gives a better quality
-const audioPlayer = new AudioPlayer(sampleRate, expectedFPS, () => {
+const audioPlayer = new AudioPlayer(sampleRate, () => {
   if (audioPlayer.isRunning()) inputButtons[audioButtonIndex].classList.add('active');
   else inputButtons[audioButtonIndex].classList.remove('active');
 });

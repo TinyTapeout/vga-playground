@@ -11,8 +11,7 @@ export class AudioPlayer {
 
   constructor(
     private readonly sampleRate: number,
-    private readonly fps: number,
-    stateListener = null,
+    stateListener: null | ((state: AudioContextState) => void) = null,
     private readonly bufferSize: number = 200,
   ) {
     this.audioCtx = new AudioContext({ sampleRate: sampleRate, latencyHint: 'interactive' });
