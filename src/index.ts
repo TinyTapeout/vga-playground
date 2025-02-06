@@ -1,10 +1,10 @@
 import * as monaco from 'monaco-editor';
+import { AudioPlayer } from './AudioPlayer';
 import { FPSCounter } from './FPSCounter';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import { compileVerilator } from './verilator/compile';
-import { AudioPlayer } from './AudioPlayer';
 
 let currentProject = structuredClone(examples[0]);
 
@@ -21,6 +21,23 @@ const gamepadPmodInputDiv = document.getElementById('gamepad-pmod-inputs');
 const gamepadPmodInputButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('#gamepad-pmod-inputs button')
 );
+const gamepadPmodInputButtonsMap = new Map(
+  gamepadPmodInputButtons.map((b) => [parseInt(b.dataset.index!, 10), b])
+);
+const gamepadPmodKeys = {
+  a: 8,
+  ArrowDown: 5,
+  ArrowLeft: 6,
+  ArrowRight: 7,
+  ArrowUp: 4,
+  b: 0,
+  l: 10,
+  r: 11,
+  s: 2, // select
+  t: 3, // start
+  x: 9,
+  y: 1,
+};
 
 const codeEditorDiv = document.getElementById('code-editor');
 const editor = monaco.editor.create(codeEditorDiv!, {
@@ -298,6 +315,20 @@ document.addEventListener('keydown', (e) => {
   }
   if (['0', '1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
     toggleButton(parseInt(e.key, 10));
+  }
+
+  const gamepadPmodIndex = gamepadPmodKeys[e.key];
+  if (enableGamepadPmod && gamepadPmodIndex != null) {
+    gamepadPmodValue = gamepadPmodValue | (1 << gamepadPmodIndex);
+    gamepadPmodInputButtonsMap.get(gamepadPmodIndex)?.classList.add('active');
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  const gamepadPmodIndex = gamepadPmodKeys[e.key];
+  if (enableGamepadPmod && gamepadPmodIndex != null) {
+    gamepadPmodValue = gamepadPmodValue & ~(1 << gamepadPmodIndex);
+    gamepadPmodInputButtonsMap.get(gamepadPmodIndex)?.classList.remove('active');
   }
 });
 
