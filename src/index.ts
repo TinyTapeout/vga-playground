@@ -309,7 +309,7 @@ function toggleButton(index: number) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if ('r' === e.key) {
+  if ('R' === e.key || (!enableGamepadPmod && 'r' === e.key)) {
     reset();
   }
   if (['0', '1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
