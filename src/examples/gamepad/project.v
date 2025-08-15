@@ -199,16 +199,16 @@ module tt_um_vga_example (
   };
 
   // Glyph positions
-  localparam LEFT_X = 64, LEFT_Y = 240;
-  localparam RIGHT_X = 128, RIGHT_Y = 240;
-  localparam UP_X = 96, UP_Y = 200;
-  localparam DOWN_X = 96, DOWN_Y = 280;
-  localparam A_X = 544, A_Y = 240;
-  localparam B_X = 512, B_Y = 280;
-  localparam X_X = 512, X_Y = 200;
-  localparam Y_X = 480, Y_Y = 240;
-  localparam L_X = 32, L_Y = 100;
-  localparam R_X = 592, R_Y = 100;
+  localparam LEFT_X = 48, LEFT_Y = 240;
+  localparam RIGHT_X = 144, RIGHT_Y = 240;
+  localparam UP_X = 96, UP_Y = 192;
+  localparam DOWN_X = 96, DOWN_Y = 288;
+  localparam A_X = 560, A_Y = 240;
+  localparam B_X = 512, B_Y = 296;
+  localparam X_X = 512, X_Y = 184;
+  localparam Y_X = 464, Y_Y = 240;
+  localparam L_X = 32, L_Y = 92;
+  localparam R_X = 592, R_Y = 92;
   localparam SEL_X = 264, SEL_Y = 240;
   localparam STRT_X = 328, STRT_Y = 240;
 
@@ -258,9 +258,9 @@ module tt_um_vga_example (
     reg [9:0] x_rel, y_rel;
     reg [7:0] row;
     begin
-      if ((pix_x >= x0) && (pix_x < x0 + 16) && (pix_y >= y0) && (pix_y < y0 + 16)) begin
-        x_rel = (pix_x - x0) >> 1;  // Scale coordinates
-        y_rel = (pix_y - y0) >> 1;
+      if ((pix_x >= x0) && (pix_x < x0 + 32) && (pix_y >= y0) && (pix_y < y0 + 32)) begin
+        x_rel = (pix_x - x0) >> 2;  // Scale coordinates
+        y_rel = (pix_y - y0) >> 2;
         row = glyph[y_rel];
         glyph_active = row[7-x_rel];
       end else begin
