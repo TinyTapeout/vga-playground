@@ -55,7 +55,7 @@ module tt_um_vga_example(
   assign G = video_active ? {moving_x[6], pix_y[2]} : 2'b00;
   assign B = video_active ? {moving_x[7], pix_y[5]} : 2'b00;
   
-  always @(posedge vsync) begin
+  always @(posedge vsync, negedge rst_n) begin
     if (~rst_n) begin
       counter <= 0;
     end else begin
