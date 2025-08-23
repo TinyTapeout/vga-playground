@@ -18,7 +18,7 @@ module tt_um_vga_example(
 );
   // increase couner every frame (vsync happens once per frame)
   reg [9:0] counter;
-  always @(posedge vsync) begin
+  always @(posedge vsync, negedge rst_n) begin
     if (~rst_n) begin
       counter <= 0;
     end else begin
