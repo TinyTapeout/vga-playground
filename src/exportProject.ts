@@ -1,5 +1,6 @@
 import { downloadZip } from 'client-zip';
 import { Project } from './examples/Project';
+import requirementsTxt from './examples/export/test/requirements.txt?raw';
 import testPy from './examples/export/test/test.py?raw';
 
 const infoYaml = (topModule: string) =>
@@ -80,6 +81,11 @@ export async function exportProject(project: Project) {
       name: 'test/test.py',
       date: currentTime,
       input: testPy,
+    },
+    {
+      name: 'test/requirements.txt',
+      date: currentTime,
+      input: requirementsTxt,
     },
     ...Object.entries(project.sources).map(([name, content]) => ({
       name: 'src/' + name,
