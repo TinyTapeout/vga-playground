@@ -98,7 +98,7 @@ async def test_project(dut):
         else:
             dut._log.info(f"Frame {frame_num}, skipping non-display lines")
             await ClockCycles(dut.clk, H_TOTAL*(V_TOTAL-V_DISPLAY))
-        frame = Image.frombytes('RGB', (H_DISPLAY, V_DISPLAY), framebuffer)
+        frame = Image.frombytes('RGB', (H_DISPLAY, V_DISPLAY), bytes(framebuffer))
         return frame
 
     # Start capturing
