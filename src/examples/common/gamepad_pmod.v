@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025 Pat Deegan, https://psychogenic.com
  * SPDX-License-Identifier: Apache-2.0
- * Version: 1.0.0
+ * Version: 1.0.1
  *
  * Interfacing code for the Gamepad Pmod from Psycogenic Technologies,
  * designed for Tiny Tapeout.
@@ -89,8 +89,7 @@ module gamepad_pmod_driver #(
       shift_reg <= {BIT_WIDTH{1'b1}};
       pmod_clk_prev <= 1'b0;
       pmod_latch_prev <= 1'b0;
-    end
-    begin
+    end else begin
       pmod_clk_prev   <= pmod_clk_sync[1];
       pmod_latch_prev <= pmod_latch_sync[1];
 
