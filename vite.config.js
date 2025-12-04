@@ -11,8 +11,10 @@ export default defineConfig({
     target: 'esnext'
   },
   optimizeDeps: {
+    exclude: ['@yowasp/yosys', '@yowasp/nextpnr-ice40'],
     esbuildOptions: {
       target: 'esnext',
     },
   },
+  assetsInclude: ['**/*.wasm', '**/*.tar'],
 });

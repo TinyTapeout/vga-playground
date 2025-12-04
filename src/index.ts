@@ -5,6 +5,7 @@ import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import { compileVerilator } from './verilator/compile';
+import { FPGACompiler } from './fpga/compile';
 
 let currentProject = structuredClone(examples[0]);
 
@@ -278,6 +279,11 @@ window.addEventListener('visibilitychange', () => {
 
 document.querySelector('#download-button')?.addEventListener('click', () => {
   exportProject(currentProject);
+});
+
+const fpgaCompiler = new FPGACompiler();
+document.querySelector('#compile-button')?.addEventListener('click', () => {
+  fpgaCompiler.compile(currentProject.sources, currentProject.topModule);
 });
 
 function toggleButton(index: number) {
