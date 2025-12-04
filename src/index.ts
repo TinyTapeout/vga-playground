@@ -21,6 +21,7 @@ import { initErrorOverlay } from './ui/ErrorOverlay';
 import { FileTabs } from './ui/FileTabs';
 import { initPresetBar } from './ui/PresetBar';
 import { compileVerilator } from './verilator/compile';
+import { FPGACompiler } from './fpga/compile';
 import { detectTopModule } from './verilog';
 
 self.MonacoEnvironment = {
@@ -263,4 +264,10 @@ window.addEventListener('visibilitychange', () => {
 
 document.querySelector('#download-button')?.addEventListener('click', () => {
   exportProject(currentProject);
+});
+
+
+const fpgaCompiler = new FPGACompiler('https://tt-fpga-compiler.fly.dev');
+document.querySelector('#compile-button')?.addEventListener('click', () => {
+  fpgaCompiler.compile(currentProject.sources, detectTopModule(currentProject.sources));
 });
