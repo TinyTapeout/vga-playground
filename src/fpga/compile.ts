@@ -1,4 +1,7 @@
 import { downloadURL } from '../exportProject';
+import { ILogEntry, TTDemoBoard } from './TTDemoBoard';
+
+/// <reference types="dom-serial" />
 
 interface StreamMessage {
   type: 'command' | 'stdout' | 'stderr' | 'error' | 'success';
@@ -16,6 +19,7 @@ export class FPGACompiler {
   private abortController: AbortController | null = null;
   private pendingFragment: DocumentFragment | null = null;
   private scrollPending: boolean = false;
+  private device: TTDemoBoard | null = null;
 
   constructor(apiUrl: string = 'http://localhost:8080') {
     this.apiUrl = apiUrl;
@@ -125,6 +129,18 @@ export class FPGACompiler {
         const binaryData = this.base64ToBytes(base64Data);
         this.downloadBitstream(fileName, binaryData);
         this.setCompiling(false);
+
+        if (this.device) {
+          this.appendOutput('Programming FPGA...\n', 'info');
+          this.device
+            .programBitstream(binaryData)
+            .then(() => {
+              this.appendOutput('FPGA programmed successfully!\n', 'success');
+            })
+            .catch((error) => {
+              this.appendOutput(`✗ Error: Failed to program FPGA: ${error}\n`, 'error');
+            });
+        }
         break;
       }
 
@@ -171,6 +187,25 @@ export class FPGACompiler {
     this.showConsole();
     this.clearOutput();
     this.setCompiling(true);
+
+    if (!this.device) {
+      try {
+        const port = await navigator.serial.requestPort({
+          filters: [{ usbVendorId: 0x2e8a, usbProductId: 0x0005 }],
+        });
+        await port.open({ baudRate: 115200 });
+        this.device = new TTDemoBoard(port);
+        this.device.addEventListener('log', (event) => {
+          const logEvent = event as CustomEvent<ILogEntry>;
+          const direction = logEvent.detail.sent ? '>>' : '<<';
+          this.appendOutput(`[FPGA] ${direction} ${logEvent.detail.text}\n`, 'info');
+        });
+        await this.device.start();
+      } catch (error) {
+        this.appendOutput(`\n✗ Error: Failed to open serial port: ${error}\n`, 'error');
+        this.appendOutput('Will download bitstream without programming the device.\n', 'info');
+      }
+    }
 
     this.appendOutput('Starting FPGA compilation...\n', 'info');
     this.appendOutput(`Top module: ${topModule}\n`, 'info');
