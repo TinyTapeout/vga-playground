@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/dom-serial": "^1.0.6",
     "@types/pngjs": "^6.0.5",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
