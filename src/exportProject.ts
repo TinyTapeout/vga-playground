@@ -3,8 +3,9 @@ import { Project } from './examples/Project';
 import requirementsTxt from './examples/export/test/requirements.txt?raw';
 import testPy from './examples/export/test/test.py?raw';
 
-const infoYaml = (topModule: string) =>
-  `
+const infoYaml = (project: Project) => {
+  const sourcesFiles = Object.entries(project.sources).map(([name]) => `    - "${name}"`);
+  return `
 # Tiny Tapeout project information
 project:
   title:        ""      # Project title
@@ -18,11 +19,11 @@ project:
   tiles: "1x1"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "${topModule}"
+  top_module:  "${project.topModule}"
   
   # List your project's source files here. Source files must be in ./src and you must list each source file separately, one per line:
-  source_files:        
-    - "project.v"
+  source_files:
+${sourcesFiles.join('\n')}
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 pinout:
@@ -59,6 +60,7 @@ pinout:
 # Do not change!
 yaml_version: 6
 `;
+};
 
 export function downloadURL(url: string, filename: string) {
   const link: HTMLAnchorElement = document.createElement('a');
@@ -75,7 +77,7 @@ export async function exportProject(project: Project) {
     {
       name: 'info.yaml',
       date: currentTime,
-      input: infoYaml(project.topModule),
+      input: infoYaml(project),
     },
     {
       name: 'test/test.py',
