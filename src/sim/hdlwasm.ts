@@ -1363,13 +1363,185 @@ export class HDLModuleWASM implements HDLModuleRunner {
   wideShiftLeft(e: HDLBinop, destAddr: number, numChunks: number): number {
     const srcAddr = this.address2wasm(e.left);
 
-    // Only constant shift amounts are supported for wide types
     if (isConstExpr(e.right)) {
       return this.wideShiftLeftConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue);
     }
 
-    // Variable shifts on wide types are not yet supported
-    throw new HDLError(e, `variable left shift on values > 64 bits is not yet supported`);
+    // Variable shift
+    return this.wideShiftLeftVar(e, destAddr, srcAddr, numChunks);
+  }
+
+  /**
+   * Generate code for wide left shift by a variable amount
+   */
+  wideShiftLeftVar(
+    e: HDLBinop,
+    destAddr: number,
+    srcAddr: number,
+    numChunks: number,
+  ): number {
+    const shiftAmount = this.e2w(e.right);
+
+    // Allocate locals for loop variables
+    const iLocal = this.locals.addEntry('$$shl_i', 4, binaryen.i32);
+    const chunkShiftLocal = this.locals.addEntry('$$shl_chunk', 4, binaryen.i32);
+    const bitShiftLocal = this.locals.addEntry('$$shl_bit', 4, binaryen.i32);
+    const srcIdxLocal = this.locals.addEntry('$$shl_srcIdx', 4, binaryen.i32);
+    const valueLocal = this.locals.addEntry('$$shl_value', 4, binaryen.i32);
+
+    const stmts: number[] = [];
+    const l_loop = this.label('@shl_loop');
+
+    // chunkShift = shiftAmount / 32
+    stmts.push(
+      this.bmod.local.set(
+        chunkShiftLocal.index,
+        this.bmod.i32.shr_u(shiftAmount, this.bmod.i32.const(5)),
+      ),
+    );
+
+    // bitShift = shiftAmount % 32
+    stmts.push(
+      this.bmod.local.set(
+        bitShiftLocal.index,
+        this.bmod.i32.and(shiftAmount, this.bmod.i32.const(31)),
+      ),
+    );
+
+    // i = numChunks - 1 (process from MSB to LSB)
+    stmts.push(this.bmod.local.set(iLocal.index, this.bmod.i32.const(numChunks - 1)));
+
+    // Loop: while (i >= 0)
+    const loopBody: number[] = [];
+
+    // srcIdx = i - chunkShift
+    loopBody.push(
+      this.bmod.local.set(
+        srcIdxLocal.index,
+        this.bmod.i32.sub(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.local.get(chunkShiftLocal.index, binaryen.i32),
+        ),
+      ),
+    );
+
+    // if (srcIdx < 0) value = 0
+    // else if (bitShift == 0) value = src[srcIdx]
+    // else value = (src[srcIdx] << bitShift) | (src[srcIdx-1] >> (32 - bitShift))
+
+    const srcIdxNegative = this.bmod.i32.lt_s(
+      this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+      this.bmod.i32.const(0),
+    );
+
+    const bitShiftZero = this.bmod.i32.eqz(
+      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+    );
+
+    // Load src[srcIdx] - compute dynamic address: srcAddr + srcIdx * 4
+    const srcChunkAddr = this.bmod.i32.add(
+      srcAddr,
+      this.bmod.i32.shl(
+        this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+        this.bmod.i32.const(2),
+      ),
+    );
+
+    // Load src[srcIdx - 1] - compute dynamic address
+    const srcChunkAddr2 = this.bmod.i32.add(
+      srcAddr,
+      this.bmod.i32.shl(
+        this.bmod.i32.sub(
+          this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+          this.bmod.i32.const(1),
+        ),
+        this.bmod.i32.const(2),
+      ),
+    );
+
+    // High part: src[srcIdx] << bitShift
+    const highPart = this.bmod.i32.shl(
+      this.bmod.i32.load(0, 4, srcChunkAddr),
+      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+    );
+
+    // Low part: src[srcIdx-1] >> (32 - bitShift)
+    // But only if srcIdx > 0
+    const lowPart = this.bmod.i32.shr_u(
+      this.bmod.i32.load(0, 4, srcChunkAddr2),
+      this.bmod.i32.sub(
+        this.bmod.i32.const(32),
+        this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+      ),
+    );
+
+    // Combined value when bitShift != 0 and srcIdx > 0
+    const combinedWithLow = this.bmod.i32.or(highPart, lowPart);
+
+    // Select: if srcIdx <= 0, use just highPart (no low neighbor), else use combined
+    const srcIdxPositive = this.bmod.i32.gt_s(
+      this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+      this.bmod.i32.const(0),
+    );
+    const shiftedValue = this.bmod.select(srcIdxPositive, combinedWithLow, highPart);
+
+    // Select between shifted value and direct copy based on bitShift
+    const copyOrShift = this.bmod.select(
+      bitShiftZero,
+      this.bmod.i32.load(0, 4, srcChunkAddr),
+      shiftedValue,
+    );
+
+    // Select final value: 0 if srcIdx < 0, else copyOrShift
+    loopBody.push(
+      this.bmod.local.set(
+        valueLocal.index,
+        this.bmod.select(srcIdxNegative, this.bmod.i32.const(0), copyOrShift),
+      ),
+    );
+
+    // Store to dest[i]
+    const destChunkAddr = this.bmod.i32.add(
+      destAddr,
+      this.bmod.i32.shl(
+        this.bmod.local.get(iLocal.index, binaryen.i32),
+        this.bmod.i32.const(2),
+      ),
+    );
+    loopBody.push(
+      this.bmod.i32.store(
+        0,
+        4,
+        destChunkAddr,
+        this.bmod.local.get(valueLocal.index, binaryen.i32),
+      ),
+    );
+
+    // i--
+    loopBody.push(
+      this.bmod.local.set(
+        iLocal.index,
+        this.bmod.i32.sub(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.i32.const(1),
+        ),
+      ),
+    );
+
+    // Continue if i >= 0
+    loopBody.push(
+      this.bmod.br_if(
+        l_loop,
+        this.bmod.i32.ge_s(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.i32.const(0),
+        ),
+      ),
+    );
+
+    stmts.push(this.bmod.loop(l_loop, this.bmod.block(null, loopBody)));
+
+    return this.bmod.block(null, stmts);
   }
 
   /**
@@ -1437,13 +1609,219 @@ export class HDLModuleWASM implements HDLModuleRunner {
   wideShiftRight(e: HDLBinop, destAddr: number, numChunks: number, signed: boolean): number {
     const srcAddr = this.address2wasm(e.left);
 
-    // Only constant shift amounts are supported for wide types
     if (isConstExpr(e.right)) {
       return this.wideShiftRightConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue, signed);
     }
 
-    // Variable shifts on wide types are not yet supported
-    throw new HDLError(e, `variable right shift on values > 64 bits is not yet supported`);
+    // Variable shift
+    return this.wideShiftRightVar(e, destAddr, srcAddr, numChunks, signed);
+  }
+
+  /**
+   * Generate code for wide right shift by a variable amount
+   */
+  wideShiftRightVar(
+    e: HDLBinop,
+    destAddr: number,
+    srcAddr: number,
+    numChunks: number,
+    signed: boolean,
+  ): number {
+    const shiftAmount = this.e2w(e.right);
+
+    // Allocate locals for loop variables
+    const iLocal = this.locals.addEntry('$$shr_i', 4, binaryen.i32);
+    const chunkShiftLocal = this.locals.addEntry('$$shr_chunk', 4, binaryen.i32);
+    const bitShiftLocal = this.locals.addEntry('$$shr_bit', 4, binaryen.i32);
+    const srcIdxLocal = this.locals.addEntry('$$shr_srcIdx', 4, binaryen.i32);
+    const valueLocal = this.locals.addEntry('$$shr_value', 4, binaryen.i32);
+    const signExtendLocal = this.locals.addEntry('$$shr_sign', 4, binaryen.i32);
+
+    const stmts: number[] = [];
+    const l_loop = this.label('@shr_loop');
+
+    // chunkShift = shiftAmount / 32
+    stmts.push(
+      this.bmod.local.set(
+        chunkShiftLocal.index,
+        this.bmod.i32.shr_u(shiftAmount, this.bmod.i32.const(5)),
+      ),
+    );
+
+    // bitShift = shiftAmount % 32
+    stmts.push(
+      this.bmod.local.set(
+        bitShiftLocal.index,
+        this.bmod.i32.and(shiftAmount, this.bmod.i32.const(31)),
+      ),
+    );
+
+    // For signed shifts, compute sign extension value (all 1s or all 0s)
+    if (signed) {
+      // signExtend = (src[numChunks-1] >> 31) - this gives 0 or -1 (0xFFFFFFFF)
+      stmts.push(
+        this.bmod.local.set(
+          signExtendLocal.index,
+          this.bmod.i32.shr_s(
+            this.bmod.i32.load((numChunks - 1) * 4, 4, srcAddr),
+            this.bmod.i32.const(31),
+          ),
+        ),
+      );
+    } else {
+      stmts.push(this.bmod.local.set(signExtendLocal.index, this.bmod.i32.const(0)));
+    }
+
+    // i = 0 (process from LSB to MSB)
+    stmts.push(this.bmod.local.set(iLocal.index, this.bmod.i32.const(0)));
+
+    // Loop: while (i < numChunks)
+    const loopBody: number[] = [];
+
+    // srcIdx = i + chunkShift
+    loopBody.push(
+      this.bmod.local.set(
+        srcIdxLocal.index,
+        this.bmod.i32.add(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.local.get(chunkShiftLocal.index, binaryen.i32),
+        ),
+      ),
+    );
+
+    // if (srcIdx >= numChunks) value = signExtend
+    // else if (bitShift == 0) value = src[srcIdx]
+    // else value = (src[srcIdx] >> bitShift) | (src[srcIdx+1] << (32 - bitShift))
+
+    const srcIdxOutOfRange = this.bmod.i32.ge_s(
+      this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+      this.bmod.i32.const(numChunks),
+    );
+
+    const bitShiftZero = this.bmod.i32.eqz(
+      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+    );
+
+    // Load src[srcIdx] - compute dynamic address: srcAddr + srcIdx * 4
+    const srcChunkAddr = this.bmod.i32.add(
+      srcAddr,
+      this.bmod.i32.shl(
+        this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+        this.bmod.i32.const(2),
+      ),
+    );
+
+    // Load src[srcIdx + 1] - compute dynamic address
+    const srcChunkAddr2 = this.bmod.i32.add(
+      srcAddr,
+      this.bmod.i32.shl(
+        this.bmod.i32.add(
+          this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+          this.bmod.i32.const(1),
+        ),
+        this.bmod.i32.const(2),
+      ),
+    );
+
+    // Low part: src[srcIdx] >> bitShift
+    const lowPart = this.bmod.i32.shr_u(
+      this.bmod.i32.load(0, 4, srcChunkAddr),
+      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+    );
+
+    // High part: src[srcIdx+1] << (32 - bitShift)
+    // But only if srcIdx + 1 < numChunks
+    const highPart = this.bmod.i32.shl(
+      this.bmod.i32.load(0, 4, srcChunkAddr2),
+      this.bmod.i32.sub(
+        this.bmod.i32.const(32),
+        this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+      ),
+    );
+
+    // For signed shift, high part when srcIdx+1 >= numChunks should be sign extended
+    const signedHighPart = this.bmod.i32.shl(
+      this.bmod.local.get(signExtendLocal.index, binaryen.i32),
+      this.bmod.i32.sub(
+        this.bmod.i32.const(32),
+        this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
+      ),
+    );
+
+    // Combined value when bitShift != 0
+    const srcIdx2InRange = this.bmod.i32.lt_s(
+      this.bmod.i32.add(
+        this.bmod.local.get(srcIdxLocal.index, binaryen.i32),
+        this.bmod.i32.const(1),
+      ),
+      this.bmod.i32.const(numChunks),
+    );
+
+    // Select high part: from src if in range, else from sign extension
+    const selectedHighPart = this.bmod.select(srcIdx2InRange, highPart, signedHighPart);
+    const combinedWithHigh = this.bmod.i32.or(lowPart, selectedHighPart);
+
+    // Select between shifted value and direct copy based on bitShift
+    const copyOrShift = this.bmod.select(
+      bitShiftZero,
+      this.bmod.i32.load(0, 4, srcChunkAddr),
+      combinedWithHigh,
+    );
+
+    // Select final value: signExtend if srcIdx >= numChunks, else copyOrShift
+    loopBody.push(
+      this.bmod.local.set(
+        valueLocal.index,
+        this.bmod.select(
+          srcIdxOutOfRange,
+          this.bmod.local.get(signExtendLocal.index, binaryen.i32),
+          copyOrShift,
+        ),
+      ),
+    );
+
+    // Store to dest[i]
+    const destChunkAddr = this.bmod.i32.add(
+      destAddr,
+      this.bmod.i32.shl(
+        this.bmod.local.get(iLocal.index, binaryen.i32),
+        this.bmod.i32.const(2),
+      ),
+    );
+    loopBody.push(
+      this.bmod.i32.store(
+        0,
+        4,
+        destChunkAddr,
+        this.bmod.local.get(valueLocal.index, binaryen.i32),
+      ),
+    );
+
+    // i++
+    loopBody.push(
+      this.bmod.local.set(
+        iLocal.index,
+        this.bmod.i32.add(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.i32.const(1),
+        ),
+      ),
+    );
+
+    // Continue if i < numChunks
+    loopBody.push(
+      this.bmod.br_if(
+        l_loop,
+        this.bmod.i32.lt_s(
+          this.bmod.local.get(iLocal.index, binaryen.i32),
+          this.bmod.i32.const(numChunks),
+        ),
+      ),
+    );
+
+    stmts.push(this.bmod.loop(l_loop, this.bmod.block(null, loopBody)));
+
+    return this.bmod.block(null, stmts);
   }
 
   /**
