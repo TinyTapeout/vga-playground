@@ -157,10 +157,12 @@ export class VerilogXMLParser implements HDLUnit {
   }
 
   parseConstValue(s: string): number | bigint {
-    const re_const = /(\d+)'([s]?)h([0-9a-f]+)/i;
+    // Match constants like 32'hABCD or 512'h0000_1234_... (with optional underscores)
+    const re_const = /(\d+)'([s]?)h([0-9a-f_]+)/i;
     const m = re_const.exec(s);
     if (m) {
-      const numstr = m[3];
+      // Remove underscores from hex string
+      const numstr = m[3].replace(/_/g, '');
       if (numstr.length <= 8) return parseInt(numstr, 16);
       else return BigInt('0x' + numstr);
     } else {
