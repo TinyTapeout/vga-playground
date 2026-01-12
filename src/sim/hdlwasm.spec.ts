@@ -545,6 +545,195 @@ describe('HDLModuleWASM', () => {
       mod2.dispose();
     });
 
+    test('should perform wide left shift by variable amount', async () => {
+      const mod = new HDLModuleWASM(
+        makeModule(
+          [
+            makeVarDef('clk', 1, { isInput: true }),
+            makeVarDef('a', 96),
+            makeVarDef('shift', 8),
+            makeVarDef('result', 96, { isOutput: true }),
+          ],
+          [
+            makeAssign(
+              'result',
+              96,
+              makeBinop('shiftl', makeVarRef('a', 96), makeVarRef('shift', 8), 96),
+            ),
+          ],
+        ),
+        null,
+      );
+      await mod.init();
+      mod.powercycle();
+
+      // Test small shift (within first chunk)
+      mod.state.a = 0x123456789abcdef0n;
+      mod.state.shift = 4;
+      mod.eval();
+      expect(mod.state.result).toBe(0x123456789abcdef0n << 4n);
+
+      // Test shift across word boundary
+      mod.state.a = 0x1n;
+      mod.state.shift = 32;
+      mod.eval();
+      expect(mod.state.result).toBe(0x100000000n);
+
+      // Test shift by exactly 64 bits
+      mod.state.a = 0xffn;
+      mod.state.shift = 64;
+      mod.eval();
+      expect(mod.state.result).toBe(0xff_00000000_00000000n);
+
+      // Test shift by non-aligned amount crossing boundaries
+      mod.state.a = 0x12345678_9abcdef0n;
+      mod.state.shift = 17;
+      mod.eval();
+      expect(mod.state.result).toBe((0x12345678_9abcdef0n << 17n) & ((1n << 96n) - 1n));
+
+      // Test shift by 0 (should be identity)
+      mod.state.a = 0xaabbccdd_eeff0011n;
+      mod.state.shift = 0;
+      mod.eval();
+      expect(mod.state.result).toBe(0xaabbccdd_eeff0011n);
+
+      mod.dispose();
+    });
+
+    test('should perform wide right shift by variable amount', async () => {
+      const mod = new HDLModuleWASM(
+        makeModule(
+          [
+            makeVarDef('clk', 1, { isInput: true }),
+            makeVarDef('a', 96),
+            makeVarDef('shift', 8),
+            makeVarDef('result', 96, { isOutput: true }),
+          ],
+          [
+            makeAssign(
+              'result',
+              96,
+              makeBinop('shiftr', makeVarRef('a', 96), makeVarRef('shift', 8), 96),
+            ),
+          ],
+        ),
+        null,
+      );
+      await mod.init();
+      mod.powercycle();
+
+      // Test small shift (within first chunk)
+      mod.state.a = 0x123456789abcdef0n;
+      mod.state.shift = 4;
+      mod.eval();
+      expect(mod.state.result).toBe(0x123456789abcdef0n >> 4n);
+
+      // Test shift across word boundary
+      mod.state.a = 0x100000000n;
+      mod.state.shift = 32;
+      mod.eval();
+      expect(mod.state.result).toBe(0x1n);
+
+      // Test shift by exactly 64 bits
+      mod.state.a = 0xff_00000000_00000000n;
+      mod.state.shift = 64;
+      mod.eval();
+      expect(mod.state.result).toBe(0xffn);
+
+      // Test shift by non-aligned amount crossing boundaries
+      mod.state.a = 0x12345678_9abcdef0_aabbccddn;
+      mod.state.shift = 17;
+      mod.eval();
+      expect(mod.state.result).toBe(0x12345678_9abcdef0_aabbccddn >> 17n);
+
+      // Test shift by 0 (should be identity)
+      mod.state.a = 0xaabbccdd_eeff0011n;
+      mod.state.shift = 0;
+      mod.eval();
+      expect(mod.state.result).toBe(0xaabbccdd_eeff0011n);
+
+      mod.dispose();
+    });
+
+    test('should handle wide variable shift edge cases', async () => {
+      const mod = new HDLModuleWASM(
+        makeModule(
+          [
+            makeVarDef('clk', 1, { isInput: true }),
+            makeVarDef('a', 128),
+            makeVarDef('shift', 8),
+            makeVarDef('left_result', 128, { isOutput: true }),
+            makeVarDef('right_result', 128, { isOutput: true }),
+          ],
+          [
+            makeAssign(
+              'left_result',
+              128,
+              makeBinop('shiftl', makeVarRef('a', 128), makeVarRef('shift', 8), 128),
+            ),
+            makeAssign(
+              'right_result',
+              128,
+              makeBinop('shiftr', makeVarRef('a', 128), makeVarRef('shift', 8), 128),
+            ),
+          ],
+        ),
+        null,
+      );
+      await mod.init();
+      mod.powercycle();
+
+      // Test with all 1s - shift left
+      mod.state.a = (1n << 128n) - 1n;
+      mod.state.shift = 1;
+      mod.eval();
+      expect(mod.state.left_result).toBe(((1n << 128n) - 1n << 1n) & ((1n << 128n) - 1n));
+
+      // Test with all 1s - shift right
+      mod.state.a = (1n << 128n) - 1n;
+      mod.state.shift = 1;
+      mod.eval();
+      expect(mod.state.right_result).toBe((1n << 128n) - 1n >> 1n);
+
+      // Test shift amount equals chunk boundary (32)
+      mod.state.a = 0xdeadbeef_cafebabe_12345678_aabbccddn;
+      mod.state.shift = 32;
+      mod.eval();
+      expect(mod.state.left_result).toBe(
+        (0xdeadbeef_cafebabe_12345678_aabbccddn << 32n) & ((1n << 128n) - 1n),
+      );
+      expect(mod.state.right_result).toBe(0xdeadbeef_cafebabe_12345678_aabbccddn >> 32n);
+
+      // Test shift amount equals multiple chunk boundaries (64)
+      mod.state.a = 0xdeadbeef_cafebabe_12345678_aabbccddn;
+      mod.state.shift = 64;
+      mod.eval();
+      expect(mod.state.left_result).toBe(
+        (0xdeadbeef_cafebabe_12345678_aabbccddn << 64n) & ((1n << 128n) - 1n),
+      );
+      expect(mod.state.right_result).toBe(0xdeadbeef_cafebabe_12345678_aabbccddn >> 64n);
+
+      // Test shift by 31 (one less than chunk boundary)
+      mod.state.a = 0x12345678_9abcdef0_11223344_55667788n;
+      mod.state.shift = 31;
+      mod.eval();
+      expect(mod.state.left_result).toBe(
+        (0x12345678_9abcdef0_11223344_55667788n << 31n) & ((1n << 128n) - 1n),
+      );
+      expect(mod.state.right_result).toBe(0x12345678_9abcdef0_11223344_55667788n >> 31n);
+
+      // Test shift by 33 (one more than chunk boundary)
+      mod.state.a = 0x12345678_9abcdef0_11223344_55667788n;
+      mod.state.shift = 33;
+      mod.eval();
+      expect(mod.state.left_result).toBe(
+        (0x12345678_9abcdef0_11223344_55667788n << 33n) & ((1n << 128n) - 1n),
+      );
+      expect(mod.state.right_result).toBe(0x12345678_9abcdef0_11223344_55667788n >> 33n);
+
+      mod.dispose();
+    });
+
     test('should perform wide equality comparison', async () => {
       const mod = new HDLModuleWASM(
         makeModule(
