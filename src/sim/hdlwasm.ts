@@ -554,7 +554,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     }
     // Check if this is a wide type (> 64 bits) for BigInt handling
     var isWide = vref.type && isLogicType(vref.type) && vref.type.left > 63;
-    var numChunks = isWide ? Math.ceil((vref.type as HDLLogicType).left + 1) / 32 : 0;
+    var numChunks = isWide ? Math.ceil(((vref.type as HDLLogicType).left + 1) / 32) : 0;
     // Compute BigInt mask for wide types
     var bigMask = isWide ? (1n << BigInt((vref.type as HDLLogicType).left + 1)) - 1n : 0n;
     // define get/set on proxy object
@@ -650,7 +650,8 @@ export class HDLModuleWASM implements HDLModuleRunner {
       //console.log(rec.name, rec.type, arr);
     } else if (rec.constval) {
       // Use cvalue if it's a number (even 0), otherwise use bigvalue for large constants
-      this.state[rec.name] = rec.constval.cvalue !== null ? rec.constval.cvalue : rec.constval.bigvalue;
+      this.state[rec.name] =
+        typeof rec.constval.cvalue === 'number' ? rec.constval.cvalue : rec.constval.bigvalue;
     } else if (rec.type && rec.reset && this.randomizeOnReset) {
       if (isLogicType(rec.type) && typeof arr === 'number') {
         this.state[rec.name] = Math.random() * 4294967296; // don't need to mask
@@ -1361,65 +1362,14 @@ export class HDLModuleWASM implements HDLModuleRunner {
    */
   wideShiftLeft(e: HDLBinop, destAddr: number, numChunks: number): number {
     const srcAddr = this.address2wasm(e.left);
-    const shiftAmount = this.e2w(e.right);
 
-    // For simplicity, handle constant shift amounts inline
-    // For variable shifts, we need more complex code
+    // Only constant shift amounts are supported for wide types
     if (isConstExpr(e.right)) {
       return this.wideShiftLeftConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue);
     }
 
-    // Variable shift - need locals and more complex logic
-    const shiftLocal = this.locals.addEntry('$$shift', 4, binaryen.i32);
-    const chunkShift = this.locals.addEntry('$$cshift', 4, binaryen.i32);
-    const bitShift = this.locals.addEntry('$$bshift', 4, binaryen.i32);
-
-    const stmts: number[] = [];
-
-    // Store shift amount
-    stmts.push(this.bmod.local.set(shiftLocal.index, shiftAmount));
-
-    // chunkShift = shift / 32
-    stmts.push(
-      this.bmod.local.set(
-        chunkShift.index,
-        this.bmod.i32.shr_u(this.bmod.local.get(shiftLocal.index, binaryen.i32), this.bmod.i32.const(5)),
-      ),
-    );
-
-    // bitShift = shift % 32
-    stmts.push(
-      this.bmod.local.set(
-        bitShift.index,
-        this.bmod.i32.and(this.bmod.local.get(shiftLocal.index, binaryen.i32), this.bmod.i32.const(31)),
-      ),
-    );
-
-    // For now, generate unrolled code for each destination chunk
-    for (let i = numChunks - 1; i >= 0; i--) {
-      const offset = i * 4;
-
-      // Build expression for this chunk
-      // dest[i] = (src[i - chunkShift] << bitShift) | (src[i - chunkShift - 1] >> (32 - bitShift))
-
-      // We need conditional logic for out-of-bounds access
-      // Simplified: if (i < chunkShift) dest[i] = 0
-      // else dest[i] = computed value
-
-      // This gets complex, so for variable shifts, we'll generate a simpler but less optimal version
-      // that zeroes out the destination first, then fills in
-    }
-
-    // For now, fall back to a simple implementation for variable shifts
-    // Zero the destination first
-    for (let i = 0; i < numChunks; i++) {
-      stmts.push(this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.const(0)));
-    }
-
-    // This is a placeholder - proper variable shift support would need loops
-    // For most HDL code, shift amounts are often constants
-
-    return this.bmod.block(null, stmts);
+    // Variable shifts on wide types are not yet supported
+    throw new HDLError(e, `variable left shift on values > 64 bits is not yet supported`);
   }
 
   /**
@@ -1487,16 +1437,13 @@ export class HDLModuleWASM implements HDLModuleRunner {
   wideShiftRight(e: HDLBinop, destAddr: number, numChunks: number, signed: boolean): number {
     const srcAddr = this.address2wasm(e.left);
 
+    // Only constant shift amounts are supported for wide types
     if (isConstExpr(e.right)) {
       return this.wideShiftRightConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue, signed);
     }
 
-    // Variable shift - simplified implementation (zeros destination for now)
-    const stmts: number[] = [];
-    for (let i = 0; i < numChunks; i++) {
-      stmts.push(this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.const(0)));
-    }
-    return this.bmod.block(null, stmts);
+    // Variable shifts on wide types are not yet supported
+    throw new HDLError(e, `variable right shift on values > 64 bits is not yet supported`);
   }
 
   /**

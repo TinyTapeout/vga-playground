@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { HDLModuleWASM } from './hdlwasm';
 import {
   HDLModuleDef,
