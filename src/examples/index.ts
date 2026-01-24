@@ -1,11 +1,11 @@
-import { Project } from './Project';
-import { balls } from './balls';
-import { stripes } from './stripes';
-import { logo } from './logo';
-import { conway } from './conway';
 import { checkers } from './checkers';
+import { conway } from './conway';
 import { drop } from './drop';
-import { music } from './music';
 import { gamepad } from './gamepad';
+import { logo } from './logo';
+import { music } from './music';
+import { Project } from './Project';
+import { rings } from './rings';
+import { stripes } from './stripes';
 
-export const examples: Project[] = [stripes, music, balls, logo, conway, checkers, drop, gamepad];
+export const examples: Project[] = [stripes, music, rings, logo, conway, checkers, drop, gamepad];

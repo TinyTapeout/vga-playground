@@ -1,8 +1,8 @@
 import hvsync_generator_v from '../common/hvsync_generator.v?raw';
 import project_v from './project.v?raw';
 
-export const balls = {
-  name: 'Balls',
+export const rings = {
+  name: 'Rings',
   author: 'Uri Shaked',
   topModule: 'tt_um_vga_example',
   sources: {
