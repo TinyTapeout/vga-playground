@@ -1,6 +1,6 @@
+import gamepad_pmod_v from '../common/gamepad_pmod.v?raw';
 import hvsync_generator_v from '../common/hvsync_generator.v?raw';
 import project_v from './project.v?raw';
-import gamepad_pmod_v from '../common/gamepad_pmod.v?raw';
 
 export const gamepad = {
   name: 'Gamepad',

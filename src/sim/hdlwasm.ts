@@ -1091,14 +1091,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     const stmts: number[] = [];
     for (let i = 0; i < numChunks; i++) {
       const offset = i * 4;
-      stmts.push(
-        this.bmod.i32.store(
-          offset,
-          4,
-          destAddr,
-          this.bmod.i32.load(offset, 4, srcAddr),
-        ),
-      );
+      stmts.push(this.bmod.i32.store(offset, 4, destAddr, this.bmod.i32.load(offset, 4, srcAddr)));
     }
     return this.bmod.block(null, stmts);
   }
@@ -1106,16 +1099,19 @@ export class HDLModuleWASM implements HDLModuleRunner {
   /**
    * Generate code to store a wide constant to dest
    */
-  wideConstStore(e: HDLSourceObject, destAddr: number, src: HDLConstant, numChunks: number): number {
+  wideConstStore(
+    e: HDLSourceObject,
+    destAddr: number,
+    src: HDLConstant,
+    numChunks: number,
+  ): number {
     const stmts: number[] = [];
     let value = src.bigvalue ?? BigInt(src.cvalue);
 
     for (let i = 0; i < numChunks; i++) {
       const chunk = Number(value & 0xffffffffn);
       value >>= 32n;
-      stmts.push(
-        this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.const(chunk)),
-      );
+      stmts.push(this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.const(chunk)));
     }
     return this.bmod.block(null, stmts);
   }
@@ -1156,7 +1152,14 @@ export class HDLModuleWASM implements HDLModuleRunner {
     }
 
     // Multiplication and division not yet supported for wide types
-    if (op === 'mul' || op === 'muls' || op === 'div' || op === 'divs' || op === 'moddiv' || op === 'moddivs') {
+    if (
+      op === 'mul' ||
+      op === 'muls' ||
+      op === 'div' ||
+      op === 'divs' ||
+      op === 'moddiv' ||
+      op === 'moddivs'
+    ) {
       throw new HDLError(e, `${op} operation on values > 64 bits is not yet supported`);
     }
 
@@ -1211,9 +1214,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       const offset = i * 4;
 
       // Load left chunk
-      stmts.push(
-        this.bmod.local.set(leftLocal.index, this.bmod.i32.load(offset, 4, leftAddr)),
-      );
+      stmts.push(this.bmod.local.set(leftLocal.index, this.bmod.i32.load(offset, 4, leftAddr)));
 
       // sum = left + right
       stmts.push(
@@ -1241,12 +1242,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
 
       // Store result
       stmts.push(
-        this.bmod.i32.store(
-          offset,
-          4,
-          destAddr,
-          this.bmod.local.get(sumLocal.index, binaryen.i32),
-        ),
+        this.bmod.i32.store(offset, 4, destAddr, this.bmod.local.get(sumLocal.index, binaryen.i32)),
       );
 
       // Update carry for next iteration
@@ -1263,9 +1259,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
           ),
           this.bmod.local.get(carryLocal.index, binaryen.i32),
         );
-        stmts.push(
-          this.bmod.local.set(carryLocal.index, this.bmod.i32.or(overflow1, overflow2)),
-        );
+        stmts.push(this.bmod.local.set(carryLocal.index, this.bmod.i32.or(overflow1, overflow2)));
       }
     }
 
@@ -1294,12 +1288,8 @@ export class HDLModuleWASM implements HDLModuleRunner {
       const offset = i * 4;
 
       // Load chunks
-      stmts.push(
-        this.bmod.local.set(leftLocal.index, this.bmod.i32.load(offset, 4, leftAddr)),
-      );
-      stmts.push(
-        this.bmod.local.set(rightLocal.index, this.bmod.i32.load(offset, 4, rightAddr)),
-      );
+      stmts.push(this.bmod.local.set(leftLocal.index, this.bmod.i32.load(offset, 4, leftAddr)));
+      stmts.push(this.bmod.local.set(rightLocal.index, this.bmod.i32.load(offset, 4, rightAddr)));
 
       // diff = left - right
       stmts.push(
@@ -1364,7 +1354,13 @@ export class HDLModuleWASM implements HDLModuleRunner {
     const srcAddr = this.address2wasm(e.left);
 
     if (isConstExpr(e.right)) {
-      return this.wideShiftLeftConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue);
+      return this.wideShiftLeftConst(
+        e,
+        destAddr,
+        srcAddr,
+        numChunks,
+        (e.right as HDLConstant).cvalue,
+      );
     }
 
     // Variable shift
@@ -1374,12 +1370,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
   /**
    * Generate code for wide left shift by a variable amount
    */
-  wideShiftLeftVar(
-    e: HDLBinop,
-    destAddr: number,
-    srcAddr: number,
-    numChunks: number,
-  ): number {
+  wideShiftLeftVar(e: HDLBinop, destAddr: number, srcAddr: number, numChunks: number): number {
     const shiftAmount = this.e2w(e.right);
 
     // Allocate locals for loop variables
@@ -1434,9 +1425,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       this.bmod.i32.const(0),
     );
 
-    const bitShiftZero = this.bmod.i32.eqz(
-      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
-    );
+    const bitShiftZero = this.bmod.i32.eqz(this.bmod.local.get(bitShiftLocal.index, binaryen.i32));
 
     // Load src[srcIdx] - compute dynamic address: srcAddr + srcIdx * 4
     const srcChunkAddr = this.bmod.i32.add(
@@ -1503,28 +1492,17 @@ export class HDLModuleWASM implements HDLModuleRunner {
     // Store to dest[i]
     const destChunkAddr = this.bmod.i32.add(
       destAddr,
-      this.bmod.i32.shl(
-        this.bmod.local.get(iLocal.index, binaryen.i32),
-        this.bmod.i32.const(2),
-      ),
+      this.bmod.i32.shl(this.bmod.local.get(iLocal.index, binaryen.i32), this.bmod.i32.const(2)),
     );
     loopBody.push(
-      this.bmod.i32.store(
-        0,
-        4,
-        destChunkAddr,
-        this.bmod.local.get(valueLocal.index, binaryen.i32),
-      ),
+      this.bmod.i32.store(0, 4, destChunkAddr, this.bmod.local.get(valueLocal.index, binaryen.i32)),
     );
 
     // i--
     loopBody.push(
       this.bmod.local.set(
         iLocal.index,
-        this.bmod.i32.sub(
-          this.bmod.local.get(iLocal.index, binaryen.i32),
-          this.bmod.i32.const(1),
-        ),
+        this.bmod.i32.sub(this.bmod.local.get(iLocal.index, binaryen.i32), this.bmod.i32.const(1)),
       ),
     );
 
@@ -1532,10 +1510,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     loopBody.push(
       this.bmod.br_if(
         l_loop,
-        this.bmod.i32.ge_s(
-          this.bmod.local.get(iLocal.index, binaryen.i32),
-          this.bmod.i32.const(0),
-        ),
+        this.bmod.i32.ge_s(this.bmod.local.get(iLocal.index, binaryen.i32), this.bmod.i32.const(0)),
       ),
     );
 
@@ -1571,12 +1546,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       } else if (bitShift === 0) {
         // No bit shift, just copy chunk
         stmts.push(
-          this.bmod.i32.store(
-            offset,
-            4,
-            destAddr,
-            this.bmod.i32.load(srcIdx * 4, 4, srcAddr),
-          ),
+          this.bmod.i32.store(offset, 4, destAddr, this.bmod.i32.load(srcIdx * 4, 4, srcAddr)),
         );
       } else {
         // Combine bits from two source chunks
@@ -1610,7 +1580,14 @@ export class HDLModuleWASM implements HDLModuleRunner {
     const srcAddr = this.address2wasm(e.left);
 
     if (isConstExpr(e.right)) {
-      return this.wideShiftRightConst(e, destAddr, srcAddr, numChunks, (e.right as HDLConstant).cvalue, signed);
+      return this.wideShiftRightConst(
+        e,
+        destAddr,
+        srcAddr,
+        numChunks,
+        (e.right as HDLConstant).cvalue,
+        signed,
+      );
     }
 
     // Variable shift
@@ -1698,9 +1675,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       this.bmod.i32.const(numChunks),
     );
 
-    const bitShiftZero = this.bmod.i32.eqz(
-      this.bmod.local.get(bitShiftLocal.index, binaryen.i32),
-    );
+    const bitShiftZero = this.bmod.i32.eqz(this.bmod.local.get(bitShiftLocal.index, binaryen.i32));
 
     // Load src[srcIdx] - compute dynamic address: srcAddr + srcIdx * 4
     const srcChunkAddr = this.bmod.i32.add(
@@ -1783,28 +1758,17 @@ export class HDLModuleWASM implements HDLModuleRunner {
     // Store to dest[i]
     const destChunkAddr = this.bmod.i32.add(
       destAddr,
-      this.bmod.i32.shl(
-        this.bmod.local.get(iLocal.index, binaryen.i32),
-        this.bmod.i32.const(2),
-      ),
+      this.bmod.i32.shl(this.bmod.local.get(iLocal.index, binaryen.i32), this.bmod.i32.const(2)),
     );
     loopBody.push(
-      this.bmod.i32.store(
-        0,
-        4,
-        destChunkAddr,
-        this.bmod.local.get(valueLocal.index, binaryen.i32),
-      ),
+      this.bmod.i32.store(0, 4, destChunkAddr, this.bmod.local.get(valueLocal.index, binaryen.i32)),
     );
 
     // i++
     loopBody.push(
       this.bmod.local.set(
         iLocal.index,
-        this.bmod.i32.add(
-          this.bmod.local.get(iLocal.index, binaryen.i32),
-          this.bmod.i32.const(1),
-        ),
+        this.bmod.i32.add(this.bmod.local.get(iLocal.index, binaryen.i32), this.bmod.i32.const(1)),
       ),
     );
 
@@ -1862,12 +1826,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
       } else if (bitShift === 0) {
         // No bit shift, just copy chunk
         stmts.push(
-          this.bmod.i32.store(
-            offset,
-            4,
-            destAddr,
-            this.bmod.i32.load(srcIdx * 4, 4, srcAddr),
-          ),
+          this.bmod.i32.store(offset, 4, destAddr, this.bmod.i32.load(srcIdx * 4, 4, srcAddr)),
         );
       } else {
         // Combine bits from two source chunks
@@ -1929,10 +1888,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
           offset,
           4,
           destAddr,
-          this.bmod.i32.xor(
-            this.bmod.i32.load(offset, 4, srcAddr),
-            this.bmod.i32.const(-1),
-          ),
+          this.bmod.i32.xor(this.bmod.i32.load(offset, 4, srcAddr), this.bmod.i32.const(-1)),
         ),
       );
     }
@@ -2496,15 +2452,21 @@ export class HDLModuleWASM implements HDLModuleRunner {
       const rightChunk = this.bmod.i32.load(offset, 4, rightAddr);
 
       // Compare: use signed comparison for MSB if signed, unsigned otherwise
-      const lt = isMsb && signed
-        ? this.bmod.i32.lt_s(leftChunk, rightChunk)
-        : this.bmod.i32.lt_u(leftChunk, rightChunk);
-      const gt = isMsb && signed
-        ? this.bmod.i32.gt_s(leftChunk, rightChunk)
-        : this.bmod.i32.gt_u(leftChunk, rightChunk);
+      const lt =
+        isMsb && signed
+          ? this.bmod.i32.lt_s(leftChunk, rightChunk)
+          : this.bmod.i32.lt_u(leftChunk, rightChunk);
+      const gt =
+        isMsb && signed
+          ? this.bmod.i32.gt_s(leftChunk, rightChunk)
+          : this.bmod.i32.gt_u(leftChunk, rightChunk);
 
       // For this chunk: if lt -> 1, if gt -> 0, if eq -> check lower chunks (result)
-      result = this.bmod.select(lt, this.bmod.i32.const(1), this.bmod.select(gt, this.bmod.i32.const(0), result));
+      result = this.bmod.select(
+        lt,
+        this.bmod.i32.const(1),
+        this.bmod.select(gt, this.bmod.i32.const(0), result),
+      );
     }
 
     return result;
@@ -2537,15 +2499,21 @@ export class HDLModuleWASM implements HDLModuleRunner {
       const leftChunk = this.bmod.i32.load(offset, 4, leftAddr);
       const rightChunk = this.bmod.i32.load(offset, 4, rightAddr);
 
-      const lt = isMsb && signed
-        ? this.bmod.i32.lt_s(leftChunk, rightChunk)
-        : this.bmod.i32.lt_u(leftChunk, rightChunk);
-      const gt = isMsb && signed
-        ? this.bmod.i32.gt_s(leftChunk, rightChunk)
-        : this.bmod.i32.gt_u(leftChunk, rightChunk);
+      const lt =
+        isMsb && signed
+          ? this.bmod.i32.lt_s(leftChunk, rightChunk)
+          : this.bmod.i32.lt_u(leftChunk, rightChunk);
+      const gt =
+        isMsb && signed
+          ? this.bmod.i32.gt_s(leftChunk, rightChunk)
+          : this.bmod.i32.gt_u(leftChunk, rightChunk);
 
       // For this chunk: if gt -> 1, if lt -> 0, if eq -> check lower chunks (result)
-      result = this.bmod.select(gt, this.bmod.i32.const(1), this.bmod.select(lt, this.bmod.i32.const(0), result));
+      result = this.bmod.select(
+        gt,
+        this.bmod.i32.const(1),
+        this.bmod.select(lt, this.bmod.i32.const(0), result),
+      );
     }
 
     return result;

@@ -5,12 +5,12 @@
  * complete compilation and simulation pipeline.
  */
 
-import { describe, expect, test, beforeAll, afterAll, vi } from 'vitest';
 import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { VerilogXMLParser } from './vxmlparser';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { HDLModuleWASM } from './hdlwasm';
+import { VerilogXMLParser } from './vxmlparser';
 
 // Get the directory of the current module
 const __dirname = dirname(fileURLToPath(import.meta.url));

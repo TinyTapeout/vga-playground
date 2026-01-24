@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { HDLModuleWASM } from './hdlwasm';
 import {
-  HDLModuleDef,
-  HDLVariableDef,
-  HDLLogicType,
-  HDLBlock,
   HDLBinop,
-  HDLVarRef,
+  HDLBlock,
   HDLConstant,
+  HDLLogicType,
+  HDLModuleDef,
   HDLUnop,
+  HDLVariableDef,
+  HDLVarRef,
 } from './hdltypes';
+import { HDLModuleWASM } from './hdlwasm';
 
 /**
  * Helper to create an HDLLogicType for a given bit width
@@ -88,7 +88,11 @@ function makeBinop(
 /**
  * Helper to create an assignment expression
  */
-function makeAssign(destName: string, destBits: number, src: HDLBinop | HDLVarRef | HDLConstant): HDLBinop {
+function makeAssign(
+  destName: string,
+  destBits: number,
+  src: HDLBinop | HDLVarRef | HDLConstant,
+): HDLBinop {
   return {
     op: 'assign',
     left: src,
@@ -131,10 +135,7 @@ describe('HDLModuleWASM', () => {
   describe('Standard operations (<=64 bits)', () => {
     test('should compile module with 32-bit signals', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('counter', 32),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('counter', 32)]),
         null,
       );
       await mod.init();
@@ -147,10 +148,7 @@ describe('HDLModuleWASM', () => {
 
     test('should compile module with 64-bit signals', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('counter', 64),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('counter', 64)]),
         null,
       );
       await mod.init();
@@ -168,10 +166,7 @@ describe('HDLModuleWASM', () => {
   describe('Wide signals (>64 bits)', () => {
     test('should compile module with 65-bit signal', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('wide', 65),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('wide', 65)]),
         null,
       );
       await mod.init();
@@ -187,10 +182,7 @@ describe('HDLModuleWASM', () => {
 
     test('should compile module with 96-bit signal', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('wide', 96),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('wide', 96)]),
         null,
       );
       await mod.init();
@@ -205,10 +197,7 @@ describe('HDLModuleWASM', () => {
 
     test('should compile module with 128-bit signal', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('wide', 128),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('wide', 128)]),
         null,
       );
       await mod.init();
@@ -223,10 +212,7 @@ describe('HDLModuleWASM', () => {
 
     test('should set and get 65-bit value via BigInt', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('wide', 65),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('wide', 65)]),
         null,
       );
       await mod.init();
@@ -245,10 +231,7 @@ describe('HDLModuleWASM', () => {
 
     test('should set and get 128-bit value via BigInt', async () => {
       const mod = new HDLModuleWASM(
-        makeModule([
-          makeVarDef('clk', 1, { isInput: true }),
-          makeVarDef('wide', 128),
-        ]),
+        makeModule([makeVarDef('clk', 1, { isInput: true }), makeVarDef('wide', 128)]),
         null,
       );
       await mod.init();
@@ -353,13 +336,7 @@ describe('HDLModuleWASM', () => {
             makeVarDef('b', 96),
             makeVarDef('result', 96, { isOutput: true }),
           ],
-          [
-            makeAssign(
-              'result',
-              96,
-              makeBinop('or', makeVarRef('a', 96), makeVarRef('b', 96), 96),
-            ),
-          ],
+          [makeAssign('result', 96, makeBinop('or', makeVarRef('a', 96), makeVarRef('b', 96), 96))],
         ),
         null,
       );
@@ -446,13 +423,7 @@ describe('HDLModuleWASM', () => {
             makeVarDef('a', 96),
             makeVarDef('result', 96, { isOutput: true }),
           ],
-          [
-            makeAssign(
-              'result',
-              96,
-              makeBinop('shiftl', makeVarRef('a', 96), makeConst(4, 8), 96),
-            ),
-          ],
+          [makeAssign('result', 96, makeBinop('shiftl', makeVarRef('a', 96), makeConst(4, 8), 96))],
         ),
         null,
       );
@@ -500,13 +471,7 @@ describe('HDLModuleWASM', () => {
             makeVarDef('a', 96),
             makeVarDef('result', 96, { isOutput: true }),
           ],
-          [
-            makeAssign(
-              'result',
-              96,
-              makeBinop('shiftr', makeVarRef('a', 96), makeConst(4, 8), 96),
-            ),
-          ],
+          [makeAssign('result', 96, makeBinop('shiftr', makeVarRef('a', 96), makeConst(4, 8), 96))],
         ),
         null,
       );
@@ -687,13 +652,13 @@ describe('HDLModuleWASM', () => {
       mod.state.a = (1n << 128n) - 1n;
       mod.state.shift = 1;
       mod.eval();
-      expect(mod.state.left_result).toBe(((1n << 128n) - 1n << 1n) & ((1n << 128n) - 1n));
+      expect(mod.state.left_result).toBe((((1n << 128n) - 1n) << 1n) & ((1n << 128n) - 1n));
 
       // Test with all 1s - shift right
       mod.state.a = (1n << 128n) - 1n;
       mod.state.shift = 1;
       mod.eval();
-      expect(mod.state.right_result).toBe((1n << 128n) - 1n >> 1n);
+      expect(mod.state.right_result).toBe(((1n << 128n) - 1n) >> 1n);
 
       // Test shift amount equals chunk boundary (32)
       mod.state.a = 0xdeadbeef_cafebabe_12345678_aabbccddn;
@@ -743,13 +708,7 @@ describe('HDLModuleWASM', () => {
             makeVarDef('b', 96),
             makeVarDef('result', 1, { isOutput: true }),
           ],
-          [
-            makeAssign(
-              'result',
-              1,
-              makeBinop('eq', makeVarRef('a', 96), makeVarRef('b', 96), 1),
-            ),
-          ],
+          [makeAssign('result', 1, makeBinop('eq', makeVarRef('a', 96), makeVarRef('b', 96), 1))],
         ),
         null,
       );
@@ -780,13 +739,7 @@ describe('HDLModuleWASM', () => {
             makeVarDef('b', 96),
             makeVarDef('result', 1, { isOutput: true }),
           ],
-          [
-            makeAssign(
-              'result',
-              1,
-              makeBinop('lt', makeVarRef('a', 96), makeVarRef('b', 96), 1),
-            ),
-          ],
+          [makeAssign('result', 1, makeBinop('lt', makeVarRef('a', 96), makeVarRef('b', 96), 1))],
         ),
         null,
       );
@@ -819,13 +772,8 @@ describe('HDLModuleWASM', () => {
       const wideConst = 0x123456789abcdef0_fedcba98n;
       const mod = new HDLModuleWASM(
         makeModule(
-          [
-            makeVarDef('clk', 1, { isInput: true }),
-            makeVarDef('result', 96, { isOutput: true }),
-          ],
-          [
-            makeAssign('result', 96, makeConst(wideConst, 96)),
-          ],
+          [makeVarDef('clk', 1, { isInput: true }), makeVarDef('result', 96, { isOutput: true })],
+          [makeAssign('result', 96, makeConst(wideConst, 96))],
         ),
         null,
       );
