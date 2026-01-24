@@ -4,4 +4,5 @@ export default {
   tabWidth: 2,
   trailingComma: 'all',
   endOfLine: 'auto',
+  plugins: ['prettier-plugin-organize-imports'],
 };
