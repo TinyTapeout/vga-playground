@@ -19,6 +19,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Check formatting
-        run: npx prettier --check "**/*.{ts,tsx,css,scss}"
+        run: npx prettier --check "**/*.{js,ts,tsx,css,scss}"
       - name: Test
         run: npm test

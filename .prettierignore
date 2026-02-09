@@ -1,0 +1,8 @@
+# Auto-generated files
+src/verilator/verilator_bin.js
+
+# Dependencies
+node_modules
+
+# Build output
+dist
