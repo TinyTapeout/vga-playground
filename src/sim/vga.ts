@@ -15,27 +15,80 @@ export interface VGASignals {
   b: number;
 }
 
-export function decodeVGAOutput(uo_out: number): VGASignals {
+export interface SyncPolarity {
+  hsyncActiveLow: boolean;
+  vsyncActiveLow: boolean;
+}
+
+export function decodeVGAOutput(uo_out: number, polarity?: SyncPolarity): VGASignals {
+  const hraw = !!(uo_out & 0b10000000);
+  const vraw = !!(uo_out & 0b00001000);
   return {
-    hsync: !!(uo_out & 0b10000000),
-    vsync: !!(uo_out & 0b00001000),
+    hsync: polarity?.hsyncActiveLow ? !hraw : hraw,
+    vsync: polarity?.vsyncActiveLow ? !vraw : vraw,
     r: ((uo_out & 0b00000001) << 1) | ((uo_out & 0b00010000) >> 4),
     g: ((uo_out & 0b00000010) << 0) | ((uo_out & 0b00100000) >> 5),
     b: ((uo_out & 0b00000100) >> 1) | ((uo_out & 0b01000000) >> 6),
   };
 }
 
+export function detectSyncPolarity(mod: HDLModuleWASM): SyncPolarity {
+  const uo_out_offset = mod.globals.lookup('uo_out').offset;
+  const MAX_TICKS = 500_000;
+
+  function detectBit(mask: number): boolean {
+    const bit = () => !!(mod.data8[uo_out_offset] & mask);
+
+    // Skip the initial (potentially partial) phase to reach a clean transition
+    const initialState = bit();
+    let skipTicks = 0;
+    while (bit() === initialState && skipTicks < MAX_TICKS) {
+      mod.tick2(1);
+      skipTicks++;
+    }
+    if (skipTicks >= MAX_TICKS) {
+      return true; // fallback: active-low (VGA standard)
+    }
+
+    // Measure two complete consecutive phases; the shorter one is the sync pulse
+    const phase1State = bit();
+    let phase1Ticks = 0;
+    while (bit() === phase1State && phase1Ticks < MAX_TICKS) {
+      mod.tick2(1);
+      phase1Ticks++;
+    }
+    if (phase1Ticks >= MAX_TICKS) {
+      return true;
+    }
+    let phase2Ticks = 0;
+    while (bit() !== phase1State && phase2Ticks < MAX_TICKS) {
+      mod.tick2(1);
+      phase2Ticks++;
+    }
+    if (phase2Ticks >= MAX_TICKS) {
+      return true;
+    }
+    const pulseIsHigh = phase1Ticks < phase2Ticks ? phase1State : !phase1State;
+    return !pulseIsHigh;
+  }
+
+  const vsyncActiveLow = detectBit(0b00001000);
+  const hsyncActiveLow = detectBit(0b10000000);
+  return { hsyncActiveLow, vsyncActiveLow };
+}
+
 export interface RenderOptions {
+  polarity?: SyncPolarity;
   onTick?: () => void;
   onLine?: () => void;
 }
 
 export function renderVGAFrame(mod: HDLModuleWASM, pixels: Uint8Array, options?: RenderOptions) {
   const uo_out_offset = mod.globals.lookup('uo_out').offset;
-  const { onTick, onLine } = options ?? {};
+  const { onTick, onLine, polarity } = options ?? {};
 
   function readSignals() {
-    return decodeVGAOutput(mod.data8[uo_out_offset]);
+    return decodeVGAOutput(mod.data8[uo_out_offset], polarity);
   }
 
   function waitFor(condition: () => boolean, timeout = 10000) {
@@ -77,9 +130,12 @@ export function resetModule(mod: HDLModuleWASM) {
 }
 
 /** Advance the simulation to the next vsync frame boundary. */
-export function skipToFrameBoundary(mod: HDLModuleWASM) {
+export function skipToFrameBoundary(mod: HDLModuleWASM, polarity?: SyncPolarity) {
   const uo_out_offset = mod.globals.lookup('uo_out').offset;
-  const vsync = () => !!(mod.data8[uo_out_offset] & 0b00001000);
+  const vsync = () => {
+    const raw = !!(mod.data8[uo_out_offset] & 0b00001000);
+    return polarity?.vsyncActiveLow ? !raw : raw;
+  };
   while (!vsync()) mod.tick2(1);
   while (vsync()) mod.tick2(1);
 }

@@ -4,7 +4,15 @@ import { FPSCounter } from './FPSCounter';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
-import { decodeVGAOutput, renderVGAFrame, resetModule, VGA_HEIGHT, VGA_WIDTH } from './sim/vga';
+import {
+  decodeVGAOutput,
+  detectSyncPolarity,
+  renderVGAFrame,
+  resetModule,
+  SyncPolarity,
+  VGA_HEIGHT,
+  VGA_WIDTH,
+} from './sim/vga';
 import { compileVerilator } from './verilator/compile';
 
 let currentProject = structuredClone(examples[0]);
@@ -67,7 +75,11 @@ const uo_out_offset_in_jmod_databuf = jmod.globals.lookup('uo_out').offset;
 const uio_out_offset_in_jmod_databuf = jmod.globals.lookup('uio_out').offset;
 const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup('uio_oe').offset;
 
+let syncPolarity: SyncPolarity = { hsyncActiveLow: false, vsyncActiveLow: false };
+
 function reset() {
+  resetModule(jmod);
+  syncPolarity = detectSyncPolarity(jmod);
   resetModule(jmod);
 }
 reset();
@@ -76,7 +88,7 @@ function getVGASignals() {
   // it is significanly faster to read 'uo_out' value directly from the jmod data buffer
   // instead of jmod.state.uo_out acccessor property
   // see HDLModuleWASM.defineProperty() implementation for inner details on how accessor works
-  return decodeVGAOutput(jmod.data8[uo_out_offset_in_jmod_databuf]);
+  return decodeVGAOutput(jmod.data8[uo_out_offset_in_jmod_databuf], syncPolarity);
 }
 
 function getAudioSignal() {
@@ -212,6 +224,7 @@ function animationFrame(now: number) {
   enableAudioUpdate = audioPlayer.needsFeeding();
   const data = new Uint8Array(imageData.data.buffer);
   renderVGAFrame(jmod, data, {
+    polarity: syncPolarity,
     onTick: updateAudio,
     onLine: updateGamepadPmod,
   });
