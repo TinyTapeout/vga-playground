@@ -87,7 +87,7 @@ module tt_um_vga_example(
       r2 <= 0;
       title_r <= 0;
     end else begin
-      if (vsync) begin
+      if (~vsync) begin
         r1 <= 0;
         r2 <= 0;
       end

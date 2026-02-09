@@ -113,7 +113,7 @@ always @(posedge clk) begin
         if (running) begin // timer-based update trigger
           if (timer < UPDATE_INTERVAL) begin
             timer <= timer + 1;
-          end else if (vsync) begin
+          end else if (~vsync) begin
             timer <= 0;
             action <= (~randomize) ? ACTION_UPDATE : ACTION_INIT;
           end

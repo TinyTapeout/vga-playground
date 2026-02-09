@@ -83,24 +83,25 @@ describe('VGA Integration', () => {
       ),
     });
 
-    expect(polarity).toEqual({ hsyncActiveLow: false, vsyncActiveLow: false });
+    expect(polarity).toEqual({ hsyncActiveLow: true, vsyncActiveLow: true });
 
     const ref = decodePNG(readFileSync(refPath));
     expect(Buffer.from(pixels).equals(Buffer.from(ref.data))).toBe(true);
   });
 
-  test('should render correctly with active-low sync signals', async () => {
+  // Backwards compatibility test: verify that active-high sync signals are handled correctly
+  test('should render correctly with active-high sync signals', async () => {
     const hvsyncV = readFileSync(
       resolve(__dirname, '../examples/common/hvsync_generator.v'),
       'utf8',
     )
       .replace(
-        'hsync <= (hpos>=H_SYNC_START && hpos<=H_SYNC_END)',
         'hsync <= ~(hpos>=H_SYNC_START && hpos<=H_SYNC_END)',
+        'hsync <= (hpos>=H_SYNC_START && hpos<=H_SYNC_END)',
       )
       .replace(
-        'vsync <= (vpos>=V_SYNC_START && vpos<=V_SYNC_END)',
         'vsync <= ~(vpos>=V_SYNC_START && vpos<=V_SYNC_END)',
+        'vsync <= (vpos>=V_SYNC_START && vpos<=V_SYNC_END)',
       );
 
     const { pixels, polarity } = await compileAndRenderFrame({
@@ -108,7 +109,7 @@ describe('VGA Integration', () => {
       'hvsync_generator.v': hvsyncV,
     });
 
-    expect(polarity).toEqual({ hsyncActiveLow: true, vsyncActiveLow: true });
+    expect(polarity).toEqual({ hsyncActiveLow: false, vsyncActiveLow: false });
 
     // Same reference — only sync polarity changed, pixel data is identical
     const ref = decodePNG(readFileSync(refPath));

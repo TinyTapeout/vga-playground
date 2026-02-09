@@ -43,7 +43,7 @@ module hvsync_generator(clk, reset, hsync, vsync, display_on, hpos, vpos);
   // horizontal position counter
   always @(posedge clk)
   begin
-    hsync <= (hpos>=H_SYNC_START && hpos<=H_SYNC_END);
+    hsync <= ~(hpos>=H_SYNC_START && hpos<=H_SYNC_END);
     if(hmaxxed)
       hpos <= 0;
     else
@@ -53,7 +53,7 @@ module hvsync_generator(clk, reset, hsync, vsync, display_on, hpos, vpos);
   // vertical position counter
   always @(posedge clk)
   begin
-    vsync <= (vpos>=V_SYNC_START && vpos<=V_SYNC_END);
+    vsync <= ~(vpos>=V_SYNC_START && vpos<=V_SYNC_END);
     if(hmaxxed)
       if (vmaxxed)
         vpos <= 0;
