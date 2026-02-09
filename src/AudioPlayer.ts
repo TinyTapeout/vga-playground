@@ -4,16 +4,17 @@
 
 export class AudioPlayer {
   private audioCtx: AudioContext;
-  private resamplerNode: AudioWorkletNode;
+  private resamplerNode!: AudioWorkletNode;
 
   private downsampleIntFactor = 1;
   private downsampleFracFactor = 1;
 
   constructor(
     private readonly sampleRate: number,
-    stateListener: null | ((state: AudioContextState) => void) = null,
+    stateListener: (() => void) | null = null,
     private readonly bufferSize: number = 200,
   ) {
+    this.buffer = new Float32Array(this.bufferSize);
     this.audioCtx = new AudioContext({ sampleRate: sampleRate, latencyHint: 'interactive' });
     // Optional downsampling is used in case when audio context does not support 192 kHz
     //                for example when context playback rate is 44.1 kHz:
@@ -32,12 +33,14 @@ export class AudioPlayer {
       });
     });
 
-    this.audioCtx.onstatechange = stateListener;
+    if (stateListener) {
+      this.audioCtx.addEventListener('statechange', stateListener);
+    }
   }
 
-  readonly latencyInMilliseconds = 0.0;
-  handleMessage(event) {
-    const getEffectiveLatency = (audioContext) => {
+  latencyInMilliseconds = 0.0;
+  handleMessage(event: MessageEvent) {
+    const getEffectiveLatency = (audioContext: AudioContext) => {
       return audioContext.outputLatency || audioContext.baseLatency || 0;
     };
 
@@ -55,7 +58,7 @@ export class AudioPlayer {
   }
 
   private writeIndex = 0;
-  readonly buffer = new Float32Array(this.bufferSize); // larger buffer reduces the communication overhead with the worker thread
+  readonly buffer: Float32Array; // larger buffer reduces the communication overhead with the worker thread
   // however, if buffer is too large it could lead to worker thread starving
   feed(value: number, current_fps: number) {
     if (this.writeIndex >= this.bufferSize) {

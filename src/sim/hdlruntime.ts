@@ -25,11 +25,12 @@ import {
 import { byteArrayToString, safeExtend } from './util';
 
 interface VerilatorUnit {
-  _ctor_var_reset(state): void;
-  _eval_initial(state): void;
-  _eval_settle(state): void;
-  _eval(state): void;
-  _change_request(state): boolean;
+  _ctor_var_reset(state: any): void;
+  _eval_initial(state: any): void;
+  _eval_settle(state: any): void;
+  _eval(state: any): void;
+  _change_request(state: any): boolean;
+  [key: string]: any;
 }
 
 export class HDLError extends EmuHalt {
@@ -44,22 +45,22 @@ export class HDLError extends EmuHalt {
 
 export class HDLModuleJS implements HDLModuleRunner {
   mod: HDLModuleDef;
-  constpool: HDLModuleDef;
+  constpool: HDLModuleDef | null;
   globals: { [name: string]: HDLVariableDef };
-  locals: { [name: string]: HDLVariableDef };
+  locals!: { [name: string]: HDLVariableDef };
   state: { [name: string]: HDLValue };
   basefuncs: VerilatorUnit;
   curfuncs: VerilatorUnit;
   finished: boolean = false;
   stopped: boolean = false;
   settleTime: number = 0;
-  curconsts: {};
-  constused: number;
+  curconsts: Record<string, any> = {};
+  constused: number = 0;
   specfuncs: VerilatorUnit[] = [];
-  getFileData = null;
-  resetStartTimeMsec: number;
+  getFileData: ((filename: string) => string | Uint8Array) | null = null;
+  resetStartTimeMsec: number = 0;
 
-  constructor(mod: HDLModuleDef, constpool: HDLModuleDef) {
+  constructor(mod: HDLModuleDef, constpool: HDLModuleDef | null) {
     this.mod = mod;
     this.constpool = constpool;
     this.basefuncs = {} as any;
@@ -69,7 +70,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     Object.getOwnPropertyNames(Object.getPrototypeOf(this))
       .filter((f) => f.startsWith('$'))
       .forEach((f) => {
-        this.basefuncs[f] = this[f].bind(this);
+        (this.basefuncs as any)[f] = (this as any)[f].bind(this);
       });
     // set initial state
     if (this.constpool) {
@@ -92,7 +93,7 @@ export class HDLModuleJS implements HDLModuleRunner {
 
   dispose() {}
 
-  genFuncs(constants: {}): VerilatorUnit {
+  genFuncs(constants: Record<string, any>): VerilatorUnit {
     var funcs = Object.create(this.basefuncs);
     this.curconsts = constants;
     for (var block of this.mod.blocks) {
@@ -101,9 +102,10 @@ export class HDLModuleJS implements HDLModuleRunner {
       this.constused = Object.keys(this.curconsts).length == 0 ? 99999 : 0;
       var s = this.block2js(block);
       if (this.constused) {
+        var funcbody = '';
         try {
           var funcname = block.name || '__anon';
-          var funcbody = `'use strict'; function ${funcname}(o) { ${s} }; return ${funcname};`;
+          funcbody = `'use strict'; function ${funcname}(o) { ${s} }; return ${funcname};`;
           var func = new Function('', funcbody)();
           funcs[block.name] = func;
           //console.log(funcbody);
@@ -121,7 +123,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     var s = '';
     for (var funcname in this.basefuncs) {
       if (funcname && funcname.startsWith('_')) {
-        s += this.basefuncs[funcname].toString();
+        s += (this.basefuncs as any)[funcname].toString();
         s += '\n';
       }
     }
@@ -217,7 +219,7 @@ export class HDLModuleJS implements HDLModuleRunner {
       }
       return arr;
     }
-    throw new HDLError(dt, `no default value for var type: ${vardef.name}`);
+    throw new HDLError(dt, `no default value for var type: ${vardef!.name}`);
   }
 
   constValue(expr: HDLExpr): number {
@@ -237,9 +239,9 @@ export class HDLModuleJS implements HDLModuleRunner {
       return '/*null*/'; // TODO
     }
     if (isVarRef(e)) {
-      if (this.curconsts[e.refname] != null && !(options || {}).store) {
+      if ((this.curconsts as any)[e.refname] != null && !(options || {}).store) {
         this.constused++;
-        return `${this.curconsts[e.refname]}`;
+        return `${(this.curconsts as any)[e.refname]}`;
       } else if (this.locals[e.refname]) {
         return `${e.refname}`;
       } else if (this.globals[e.refname]) {
@@ -316,7 +318,7 @@ export class HDLModuleJS implements HDLModuleRunner {
         case 'creturn':
           return `return ${this.expr2js(e.left)}`;
         case 'creset':
-          return this.expr2reset(e.left);
+          return this.expr2reset(e.left)!;
         case 'not':
           return `(~${this.expr2js(e.left)})`;
         //return `(${this.expr2js(e.left)}?0:1)`;
@@ -362,7 +364,7 @@ export class HDLModuleJS implements HDLModuleRunner {
 
   expr2reset(e: HDLExpr) {
     if (isVarRef(e)) {
-      if (this.curconsts[e.refname] != null) {
+      if ((this.curconsts as any)[e.refname] != null) {
         return `${e.refname}`;
       } else if (isLogicType(e.dtype)) {
         if (e.dtype.left <= 31) return `${this.expr2js(e)} = 0`;
@@ -385,31 +387,31 @@ export class HDLModuleJS implements HDLModuleRunner {
   // runtime methods
   // TODO: $time, $display, etc
 
-  $finish(o, loc) {
+  $finish(o: any, loc: any) {
     if (!this.finished) {
       console.log('Simulation $finish', loc);
       this.finished = true;
     }
   }
 
-  $stop(o, loc) {
+  $stop(o: any, loc: any) {
     if (!this.stopped) {
       console.log('Simulation $stop', loc);
       this.stopped = true;
     }
   }
 
-  $rand(o): number {
+  $rand(o: any): number {
     return Math.random() | 0;
   }
 
-  $display(o, fmt, ...args) {
+  $display(o: any, fmt: any, ...args: any[]) {
     // TODO: replace args, etc
     console.log(fmt, args);
   }
 
   // TODO: implement arguments, XML
-  $readmem(o, filename, memp, lsbp, msbp, ishex) {
+  $readmem(o: any, filename: any, memp: any, lsbp: any, msbp: any, ishex: any) {
     // parse filename from 32-bit values into characters
     var barr = [];
     for (var i = 0; i < filename.length; i++) {
@@ -422,7 +424,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     barr.reverse(); // reverse it
     var strfn = byteArrayToString(barr); // convert to string
     // parse hex/binary file
-    var strdata = this.getFileData(strfn) as string;
+    var strdata = this.getFileData!(strfn) as string;
     if (strdata == null) throw new HDLError(null, "Could not $readmem '" + strfn + "'");
     var data = strdata
       .split('\n')
@@ -436,7 +438,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     for (i = 0; i < data.length; i++) memp[i] = data[i];
   }
 
-  $time(o) {
+  $time(o: any) {
     return new Date().getTime() - this.resetStartTimeMsec; // TODO: timescale
   }
 
@@ -458,7 +460,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     return this.state[varname];
   }
 
-  set(varname: string, value) {
+  set(varname: string, value: any) {
     if (varname in this.state) {
       this.state[varname] = value;
     }
@@ -472,7 +474,7 @@ export class HDLModuleJS implements HDLModuleRunner {
     return this.saveState();
   }
 
-  loadState(state) {
+  loadState(state: Record<string, any>) {
     safeExtend(true, this.state, state);
   }
 }

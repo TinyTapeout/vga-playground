@@ -20,5 +20,7 @@ jobs:
         run: npm ci
       - name: Check formatting
         run: npx prettier --check "**/*.{js,ts,tsx,css,scss}"
+      - name: Type check
+        run: npm run typecheck
       - name: Test
         run: npm test

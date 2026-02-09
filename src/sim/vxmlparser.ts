@@ -61,10 +61,10 @@ export class VerilogXMLParser implements HDLUnit {
   modules: { [id: string]: HDLModuleDef } = {};
   hierarchies: { [id: string]: HDLHierarchyDef } = {};
 
-  cur_node: XMLNode;
-  cur_module: HDLModuleDef;
-  cur_loc: HDLSourceLocation;
-  cur_loc_str: string;
+  cur_node!: XMLNode;
+  cur_module!: HDLModuleDef;
+  cur_loc!: HDLSourceLocation;
+  cur_loc_str!: string;
   cur_deferred: Array<() => void> = [];
 
   constructor() {
@@ -106,7 +106,7 @@ export class VerilogXMLParser implements HDLUnit {
     return arr;
   }
 
-  parseSourceLocation(node: XMLNode): HDLSourceLocation {
+  parseSourceLocation(node: XMLNode): HDLSourceLocation | undefined {
     const loc = node.attrs['loc'];
     if (loc) {
       if (loc == this.cur_loc_str) {
@@ -126,7 +126,7 @@ export class VerilogXMLParser implements HDLUnit {
         return $loc;
       }
     } else {
-      return null;
+      return undefined;
     }
   }
 
@@ -198,7 +198,7 @@ export class VerilogXMLParser implements HDLUnit {
       }
     });
     this.modules[this.cur_module.name] = this.cur_module;
-    this.cur_module = null;
+    this.cur_module = null!;
   }
 
   visit_var(node: XMLNode): HDLVariableDef {
@@ -211,7 +211,7 @@ export class VerilogXMLParser implements HDLUnit {
       isInput: node.attrs['dir'] == 'input',
       isOutput: node.attrs['dir'] == 'output',
       isParam: node.attrs['param'] == 'true',
-      dtype: null,
+      dtype: null!,
     };
     this.deferDataType(node, vardef);
     const const_nodes = this.findChildren(node, 'const', false);
@@ -230,9 +230,9 @@ export class VerilogXMLParser implements HDLUnit {
     const { value, origWidth } = this.parseConstValue(name);
     const constdef: HDLConstant = {
       $loc: this.parseSourceLocation(node),
-      dtype: null,
-      cvalue: typeof value === 'number' ? value : null,
-      bigvalue: typeof value === 'bigint' ? value : null,
+      dtype: null!,
+      cvalue: typeof value === 'number' ? value : null!,
+      bigvalue: typeof value === 'bigint' ? value : null!,
       origWidth,
     };
     this.deferDataType(node, constdef);
@@ -244,7 +244,7 @@ export class VerilogXMLParser implements HDLUnit {
     name = this.name2js(name);
     const varref: HDLVarRef = {
       $loc: this.parseSourceLocation(node),
-      dtype: null,
+      dtype: null!,
       refname: name,
     };
     this.deferDataType(node, varref);
@@ -276,8 +276,8 @@ export class VerilogXMLParser implements HDLUnit {
     const always: HDLAlwaysBlock = {
       $loc: this.parseSourceLocation(node),
       blocktype: node.type,
-      name: null,
-      senlist: sentree,
+      name: null!,
+      senlist: sentree!,
       exprs: [expr],
     };
     this.cur_module.blocks.push(always);
@@ -285,7 +285,7 @@ export class VerilogXMLParser implements HDLUnit {
   }
 
   visit_begin(node: XMLNode): HDLBlock {
-    const exprs = [];
+    const exprs: HDLExpr[] = [];
     node.children.forEach((n) => exprs.push(n.obj));
     return {
       $loc: this.parseSourceLocation(node),
@@ -307,10 +307,8 @@ export class VerilogXMLParser implements HDLUnit {
     };
   }
 
-  visit_cfunc(node: XMLNode): HDLBlock {
+  visit_cfunc(node: XMLNode) {
     if (this.cur_module == null) {
-      // TODO?
-      //console.log('no module open, skipping', node);
       return;
     }
     const block = this.visit_begin(node);
@@ -330,7 +328,7 @@ export class VerilogXMLParser implements HDLUnit {
       name: node.attrs['name'],
       origName: node.attrs['origName'],
       ports: [],
-      module: null,
+      module: null!,
     };
     node.children.forEach((child) => {
       instance.ports.push(child.obj);
@@ -402,11 +400,11 @@ export class VerilogXMLParser implements HDLUnit {
   }
 
   visit_cell(node: XMLNode): HDLHierarchyDef {
-    const hier = {
+    const hier: HDLHierarchyDef = {
       $loc: this.parseSourceLocation(node),
       name: node.attrs['name'],
-      module: null,
-      parent: null,
+      module: null!,
+      parent: null!,
       children: node.children.map((n) => n.obj),
     };
     if (node.children.length > 0)
@@ -463,7 +461,7 @@ export class VerilogXMLParser implements HDLUnit {
   }
 
   visit_memberdtype(node: XMLNode) {
-    throw new CompileError(null, `structs not supported`);
+    throw new CompileError(null!, `structs not supported`);
   }
 
   visit_constdtype(node: XMLNode) {
@@ -481,7 +479,7 @@ export class VerilogXMLParser implements HDLUnit {
     if (isConstExpr(range.left) && isConstExpr(range.right)) {
       const dtype: HDLUnpackArray = {
         $loc: this.parseSourceLocation(node),
-        subtype: null,
+        subtype: null!,
         low: range.left,
         high: range.right,
       };
@@ -530,7 +528,7 @@ export class VerilogXMLParser implements HDLUnit {
     const expr: HDLUnop = {
       $loc: this.parseSourceLocation(node),
       op: node.type,
-      dtype: null,
+      dtype: null!,
       left: node.children[0].obj as HDLExpr,
     };
     this.deferDataType(node, expr);
@@ -554,7 +552,7 @@ export class VerilogXMLParser implements HDLUnit {
     const expr: HDLBinop = {
       $loc: this.parseSourceLocation(node),
       op: node.type,
-      dtype: null,
+      dtype: null!,
       left: node.children[0].obj as HDLExpr,
       right: node.children[1].obj as HDLExpr,
     };
@@ -567,7 +565,7 @@ export class VerilogXMLParser implements HDLUnit {
     const expr: HDLTriop = {
       $loc: this.parseSourceLocation(node),
       op: 'if',
-      dtype: null,
+      dtype: null!,
       cond: node.children[0].obj as HDLExpr,
       left: node.children[1].obj as HDLExpr,
       right: node.children[2] && (node.children[2].obj as HDLExpr),
@@ -581,7 +579,7 @@ export class VerilogXMLParser implements HDLUnit {
     const expr: HDLWhileOp = {
       $loc: this.parseSourceLocation(node),
       op: 'while',
-      dtype: null,
+      dtype: null!,
       precond: node.children[0].obj as HDLExpr,
       loopcond: node.children[1].obj as HDLExpr,
       body: node.children[2] && (node.children[2].obj as HDLExpr),
@@ -595,7 +593,7 @@ export class VerilogXMLParser implements HDLUnit {
     const expr: HDLTriop = {
       $loc: this.parseSourceLocation(node),
       op: node.type,
-      dtype: null,
+      dtype: null!,
       cond: node.children[0].obj as HDLExpr,
       left: node.children[1].obj as HDLExpr,
       right: node.children[2].obj as HDLExpr,
@@ -605,9 +603,9 @@ export class VerilogXMLParser implements HDLUnit {
   }
 
   __visit_func(node: XMLNode): HDLFuncCall {
-    const expr = {
+    const expr: HDLFuncCall = {
       $loc: this.parseSourceLocation(node),
-      dtype: null,
+      dtype: null!,
       funcname: node.attrs['func'] || '$' + node.type,
       args: node.children.map((n) => n.obj as HDLExpr),
     };
@@ -757,9 +755,8 @@ export class VerilogXMLParser implements HDLUnit {
     return this.__visit_triop(node);
   }
 
-  visit_changedet(node: XMLNode): HDLBinop {
-    if (node.children.length == 0)
-      return null; //{ op: "changedet", dtype:null, left:null, right:null }
+  visit_changedet(node: XMLNode) {
+    if (node.children.length == 0) return null;
     else return this.__visit_binop(node);
   }
 
@@ -797,7 +794,7 @@ export class VerilogXMLParser implements HDLUnit {
 
   xml_open(node: XMLNode) {
     this.cur_node = node;
-    const method = this[`open_${node.type}`];
+    const method = (this as any)[`open_${node.type}`];
     if (method) {
       return method.bind(this)(node);
     }
@@ -805,7 +802,7 @@ export class VerilogXMLParser implements HDLUnit {
 
   xml_close(node: XMLNode) {
     this.cur_node = node;
-    const method = this[`visit_${node.type}`];
+    const method = (this as any)[`visit_${node.type}`];
     if (method) {
       return method.bind(this)(node);
     } else {
@@ -815,7 +812,7 @@ export class VerilogXMLParser implements HDLUnit {
 
   parse(xmls: string) {
     parseXMLPoorly(xmls, this.xml_open.bind(this), this.xml_close.bind(this));
-    this.cur_node = null;
+    this.cur_node = null!;
     this.run_deferred();
   }
 }

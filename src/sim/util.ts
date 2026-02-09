@@ -14,7 +14,7 @@ export function byteArrayToString(data: number[] | Uint8Array): string {
 }
 
 // only does primitives, 1D arrays and no recursion
-export function safeExtend(deep, dest, src) {
+export function safeExtend(deep: boolean, dest: Record<string, any>, src: Record<string, any>) {
   // TODO: deep ignored
   for (const key in src) {
     const val = src[key];

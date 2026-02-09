@@ -45,7 +45,7 @@ export function parseXMLPoorly(
   }
   function parseattrs(as: string): { [id: string]: string } {
     var am;
-    var attrs = {};
+    var attrs: Record<string, string> = {};
     if (as != null) {
       while ((am = attr_re.exec(as))) {
         attrs[am[1]] = escapeXML(am[2]);

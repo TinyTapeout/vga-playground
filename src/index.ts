@@ -300,7 +300,7 @@ document.addEventListener('keydown', (e) => {
     toggleButton(parseInt(e.key, 10));
   }
 
-  const gamepadPmodIndex = gamepadPmodKeys[e.key];
+  const gamepadPmodIndex = (gamepadPmodKeys as Record<string, number | undefined>)[e.key];
   if (enableGamepadPmod && gamepadPmodIndex != null) {
     gamepadPmodValue = gamepadPmodValue | (1 << gamepadPmodIndex);
     gamepadPmodInputButtonsMap.get(gamepadPmodIndex)?.classList.add('active');
@@ -308,7 +308,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
-  const gamepadPmodIndex = gamepadPmodKeys[e.key];
+  const gamepadPmodIndex = (gamepadPmodKeys as Record<string, number | undefined>)[e.key];
   if (enableGamepadPmod && gamepadPmodIndex != null) {
     gamepadPmodValue = gamepadPmodValue & ~(1 << gamepadPmodIndex);
     gamepadPmodInputButtonsMap.get(gamepadPmodIndex)?.classList.remove('active');

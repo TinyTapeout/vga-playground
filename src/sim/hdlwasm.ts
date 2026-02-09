@@ -112,7 +112,7 @@ function getArrayValueType(e: HDLExpr): HDLDataType {
   throw new HDLError(e, `cannot figure out array value type`);
 }
 
-function getAlignmentForSize(size) {
+function getAlignmentForSize(size: number) {
   if (size <= 1) return 1;
   else if (size <= 2) return 2;
   else if (size <= 4) return 4;
@@ -144,18 +144,18 @@ function getNumChunks(dt: HDLDataType): number {
 
 interface StructRec {
   name: string;
-  type: HDLDataType;
+  type: HDLDataType | undefined;
   offset: number;
   size: number;
-  itype: number;
+  itype: number | undefined;
   index: number;
-  init: HDLBlock;
-  constval: HDLConstant;
+  init: HDLBlock | null | undefined;
+  constval: HDLConstant | null | undefined;
   reset: boolean;
 }
 
 class Struct {
-  parent: Struct;
+  parent!: Struct;
   len: number = 0;
   vars: { [name: string]: StructRec } = {};
   locals: StructRec[] = [];
@@ -200,10 +200,10 @@ class Struct {
     return rec;
   }
 
-  getLocals() {
-    var vars = [];
+  getLocals(): number[] {
+    var vars: number[] = [];
     for (const rec of this.locals) {
-      vars.push(rec.itype);
+      vars.push(rec.itype!);
     }
     return vars;
   }
@@ -216,41 +216,41 @@ class Struct {
 ///
 
 export class HDLModuleWASM implements HDLModuleRunner {
-  bmod: binaryen.Module;
-  instance: WebAssembly.Instance;
+  bmod!: binaryen.Module;
+  instance!: WebAssembly.Instance;
 
   hdlmod: HDLModuleDef;
-  constpool: HDLModuleDef;
-  globals: Struct;
-  locals: Struct;
-  databuf: Buffer;
-  data8: Uint8Array;
-  data16: Uint16Array;
-  data32: Uint32Array;
-  getFileData = null;
+  constpool: HDLModuleDef | null;
+  globals!: Struct;
+  locals!: Struct;
+  databuf!: ArrayBuffer;
+  data8!: Uint8Array;
+  data16!: Uint16Array;
+  data32!: Uint32Array;
+  getFileData: ((filename: string) => string | Uint8Array) | null = null;
   maxMemoryMB: number;
   optimize: boolean = false;
   maxEvalIterations: number = 8;
 
   state: any;
-  statebytes: number;
-  outputbytes: number;
+  statebytes!: number;
+  outputbytes!: number;
 
   traceBufferSize: number = 0xff000;
-  traceRecordSize: number;
-  traceReadOffset: number;
-  traceStartOffset: number;
-  traceEndOffset: number;
+  traceRecordSize!: number;
+  traceReadOffset!: number;
+  traceStartOffset!: number;
+  traceEndOffset!: number;
   trace: any;
 
   randomizeOnReset: boolean = false;
-  finished: boolean;
-  stopped: boolean;
-  resetStartTimeMsec: number;
+  finished!: boolean;
+  stopped!: boolean;
+  resetStartTimeMsec!: number;
 
-  _tick2: (ofs: number, iters: number) => void;
+  _tick2!: (ofs: number, iters: number) => void;
 
-  constructor(moddef: HDLModuleDef, constpool: HDLModuleDef, maxMemoryMB?: number) {
+  constructor(moddef: HDLModuleDef, constpool: HDLModuleDef | null, maxMemoryMB?: number) {
     this.hdlmod = moddef;
     this.constpool = constpool;
     this.maxMemoryMB = maxMemoryMB || 16;
@@ -323,15 +323,15 @@ export class HDLModuleWASM implements HDLModuleRunner {
     return { o: this.data8.slice(0, this.statebytes) };
   }
 
-  loadState(state) {
+  loadState(state: { o: Uint8Array }) {
     this.data8.set(state.o as Uint8Array);
   }
 
   // get tree of global variables for debugging
   getGlobals() {
-    var g = {};
+    var g: Record<string, any> = {};
     for (const [varname, vardef] of Object.entries(this.hdlmod.vardefs)) {
-      var o = g;
+      var o: Record<string, any> = g;
       var toks = varname.split('$');
       for (var tok of toks.slice(0, -1)) {
         o[tok] = o[tok] || {};
@@ -374,12 +374,12 @@ export class HDLModuleWASM implements HDLModuleRunner {
   dispose() {
     if (this.bmod) {
       this.bmod.dispose();
-      this.bmod = null;
-      this.instance = null;
-      this.databuf = null;
-      this.data8 = null;
-      this.data16 = null;
-      this.data32 = null;
+      this.bmod = null as any;
+      this.instance = null as any;
+      this.databuf = null as any;
+      this.data8 = null as any;
+      this.data16 = null as any;
+      this.data32 = null as any;
     }
   }
 
@@ -487,15 +487,15 @@ export class HDLModuleWASM implements HDLModuleRunner {
     }
   }
 
-  private genFunction(block) {
+  private genFunction(block: HDLBlock) {
     // TODO: cfuncs only
     var fnname = block.name;
     // find locals of function
     var fscope = new Struct();
-    fscope.addEntry(GLOBAL, 4, binaryen.i32, null, true); // 1st param to function
+    fscope.addEntry(GLOBAL, 4, binaryen.i32, undefined, true); // 1st param to function
     // add __req local if change_request function
     if (this.funcResult(block.name) == binaryen.i32) {
-      fscope.addEntry(CHANGEDET, 1, binaryen.i32, null, false);
+      fscope.addEntry(CHANGEDET, 1, binaryen.i32, undefined, false);
     }
     this.pushScope(fscope);
     block.exprs.forEach((e) => {
@@ -518,19 +518,19 @@ export class HDLModuleWASM implements HDLModuleRunner {
   }
 
   private async genModule() {
-    var wasmData = this.bmod.emitBinary();
+    var wasmData = this.bmod.emitBinary() as BufferSource;
     var compiled = await WebAssembly.compile(wasmData);
     this.instance = await WebAssembly.instantiate(compiled, this.getImportObject());
   }
 
   private genModuleSync() {
-    var wasmData = this.bmod.emitBinary();
+    var wasmData = this.bmod.emitBinary() as BufferSource;
     var compiled = new WebAssembly.Module(wasmData);
     this.instance = new WebAssembly.Instance(compiled, this.getImportObject());
   }
 
   private genStateInterface() {
-    this.databuf = (this.instance.exports[MEMORY] as any).buffer;
+    this.databuf = (this.instance.exports[MEMORY] as WebAssembly.Memory).buffer;
     this.data8 = new Uint8Array(this.databuf);
     this.data16 = new Uint16Array(this.databuf);
     this.data32 = new Uint32Array(this.databuf);
@@ -540,7 +540,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     });
   }
 
-  private defineProperty(proxy, basefn: () => number, vref: StructRec) {
+  private defineProperty(proxy: any, basefn: () => number, vref: StructRec) {
     var _this = this;
     // precompute some things
     var elsize = vref.type && getArrayElementSizeFromType(vref.type);
@@ -720,22 +720,22 @@ export class HDLModuleWASM implements HDLModuleRunner {
     return {
       // TODO: merge w/ JS runtime
       builtins: {
-        $finish: (o) => {
+        $finish: (o: number) => {
           if (!this.finished) console.log('... Finished @', o);
           this.finished = true;
         },
-        $stop: (o) => {
+        $stop: (o: number) => {
           if (!this.stopped) console.log('... Stopped @', o);
           this.stopped = true;
         },
-        $time: (o) => BigInt(new Date().getTime() - this.resetStartTimeMsec), // TODO: timescale
-        $rand: (o) => (Math.random() * (65536 * 65536)) | 0,
-        $readmem: (o, a, b) => this.$readmem(a, b),
+        $time: (o: number) => BigInt(new Date().getTime() - this.resetStartTimeMsec), // TODO: timescale
+        $rand: (o: number) => (Math.random() * (65536 * 65536)) | 0,
+        $readmem: (o: number, a: number, b: number) => this.$readmem(a, b),
       },
     };
   }
 
-  private $readmem(p_filename, p_rom) {
+  private $readmem(p_filename: number, p_rom: number) {
     var fn = '';
     for (var i = 0; i < 255; i++) {
       var charCode = this.data8[p_filename + i];
@@ -867,19 +867,19 @@ export class HDLModuleWASM implements HDLModuleRunner {
   }
 
   private makeGetVariableFunction(name: string, value: number) {
-    var dtype = this.globals.lookup(name).type;
+    var dtype = this.globals.lookup(name).type!;
     var src: HDLVarRef = { refname: name, dtype: dtype };
     return this.e2w(src);
   }
 
   private makeSetVariableFunction(name: string, value: number) {
-    var dtype = this.globals.lookup(name).type;
+    var dtype = this.globals.lookup(name).type!;
     var dest: HDLVarRef = { refname: name, dtype: dtype };
-    var src: HDLConstant = { cvalue: value, bigvalue: null, dtype: dtype };
+    var src: HDLConstant = { cvalue: value, bigvalue: null!, dtype: dtype! };
     return this.assign2wasm(dest, src);
   }
 
-  private makeTickFuncBody(count: number) {
+  private makeTickFuncBody(count: number): number {
     var dseg = this.bmod.local.get(0, binaryen.i32);
     if (count > this.maxEvalIterations) return this.bmod.i32.const(count);
     return this.bmod.block(
@@ -950,11 +950,11 @@ export class HDLModuleWASM implements HDLModuleRunner {
       return this.funccall2wasm(e, opts);
     } else if (isUnop(e) || isBinop(e) || isTriop(e) || isWhileop(e)) {
       var n = `_${e.op}2wasm`;
-      var fn = this[n];
+      var fn = (this as any)[n];
       if (fn == null) {
         throw new HDLError(e, `no such method ${n}`);
       }
-      return this[n](e, opts);
+      return (this as any)[n](e, opts);
     } else {
       throw new HDLError(e, `could not translate expr`);
     }
@@ -990,7 +990,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     return this.bmod.call(internal, args, ret);
   }
 
-  const2wasm(e: HDLConstant, opts: Options): number {
+  const2wasm(e: HDLConstant, opts?: Options): number {
     var size = getDataTypeSize(e.dtype);
     if (isLogicType(e.dtype)) {
       if (e.bigvalue != null) {
@@ -1005,12 +1005,12 @@ export class HDLModuleWASM implements HDLModuleRunner {
     }
   }
 
-  varref2wasm(e: HDLVarRef, opts: Options): number {
+  varref2wasm(e: HDLVarRef, opts?: Options): number {
     if (opts && opts.store) throw Error(`cannot store here`);
     var local = this.locals && this.locals.lookup(e.refname);
     var global = this.globals.lookup(e.refname);
     if (local != null) {
-      return this.bmod.local.get(local.index, local.itype);
+      return this.bmod.local.get(local.index, local.itype!);
     } else if (global != null) {
       if (global.size > 8 && opts && opts.funcarg)
         return this.address2wasm(e); // TODO: only applies to wordsel
@@ -1019,7 +1019,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     throw new HDLError(e, `cannot lookup variable ${e.refname}`);
   }
 
-  local2wasm(e: HDLVariableDef, opts: Options): number {
+  local2wasm(e: HDLVariableDef, opts?: Options): number {
     var local = this.locals.lookup(e.name);
     //if (local == null) throw Error(`no local for ${e.name}`)
     return this.bmod.nop(); // TODO
@@ -1983,7 +1983,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     );
   }
 
-  loadmem(e: HDLSourceObject, ptr, offset: number, size: number): number {
+  loadmem(e: HDLSourceObject, ptr: number, offset: number, size: number): number {
     if (size == 1) {
       return this.bmod.i32.load8_u(offset, 1, ptr);
     } else if (size == 2) {
@@ -1997,7 +1997,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     }
   }
 
-  storemem(e: HDLSourceObject, ptr, offset: number, size: number, value): number {
+  storemem(e: HDLSourceObject, ptr: number, offset: number, size: number, value: number): number {
     if (size == 1) {
       return this.bmod.i32.store8(offset, 1, ptr, value);
     } else if (size == 2) {
@@ -2174,7 +2174,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (!req) throw new HDLError(e, `no changedet local`);
     var left = this.e2w(e.left);
     var right = this.e2w(e.right);
-    let datainst = this.i3264(hasDataType(e.left) && e.left.dtype);
+    let datainst = this.i3264(hasDataType(e.left) ? e.left.dtype : e.dtype);
     return this.bmod.block(null, [
       // if (left != right) req = 1;
       this.bmod.if(
@@ -2337,13 +2337,13 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (isConstExpr(e.left) && (e.left as HDLConstant).origWidth != null) {
       const cst = e.left as HDLConstant;
       if (hasDataType(cst) && isLogicType(cst.dtype) && cst.dtype.signed) {
-        width = cst.origWidth;
+        width = cst.origWidth!;
       }
     }
     if (isConstExpr(e.right) && (e.right as HDLConstant).origWidth != null) {
       const cst = e.right as HDLConstant;
       if (hasDataType(cst) && isLogicType(cst.dtype) && cst.dtype.signed) {
-        const w = cst.origWidth;
+        const w = cst.origWidth!;
         if (width === null || w < width) width = w;
       }
     }

@@ -3,7 +3,7 @@ export class FPSCounter {
   private index = 0;
   private lastTime = -1;
   private pauseTime = -1;
-  readonly fps = 0;
+  fps = 0;
 
   constructor() {}
 

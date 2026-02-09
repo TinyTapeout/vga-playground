@@ -17,7 +17,7 @@ export async function compileVerilator(opts: ICompileOptions) {
       const { default: wasmUrl } = await import('./verilator_bin.wasm?url');
       browserWasmBin = await fetch(wasmUrl).then((res) => res.arrayBuffer());
     }
-    wasmBinary = browserWasmBin;
+    wasmBinary = browserWasmBin ?? undefined;
   }
 
   const errorParser = new ErrorParser();
@@ -79,7 +79,7 @@ export async function compileVerilator(opts: ICompileOptions) {
     const xmlContent = FS.readFile(xmlPath, { encoding: 'utf8' });
     xmlParser.parse(xmlContent);
   } catch (e) {
-    console.log(e, e.stack);
+    console.log(e, (e as Error).stack);
 
     return {
       errors: [

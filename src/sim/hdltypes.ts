@@ -12,7 +12,7 @@ export interface HDLModuleRunner {
   saveState(): {};
   loadState(state: {}): void;
   dispose(): void;
-  getFileData: (filename: string) => string | Uint8Array;
+  getFileData: ((filename: string) => string | Uint8Array) | null;
 }
 
 export interface HDLModuleTrace extends HDLModuleRunner {
@@ -55,7 +55,7 @@ export function isArrayType(arg: any): arg is HDLUnpackArray {
   );
 }
 
-export class HDLFile {
+export interface HDLFile {
   id: string;
   filename: string;
   isModule: boolean;
