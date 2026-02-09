@@ -2,8 +2,9 @@ import { downloadZip } from 'client-zip';
 import { Project } from './examples/Project';
 import requirementsTxt from './examples/export/test/requirements.txt?raw';
 import testPy from './examples/export/test/test.py?raw';
+import { detectTopModule } from './verilog';
 
-const infoYaml = (project: Project) => {
+const infoYaml = (project: Project, topModule: string) => {
   const sourcesFiles = Object.entries(project.sources).map(([name]) => `    - "${name}"`);
   return `
 # Tiny Tapeout project information
@@ -19,7 +20,7 @@ project:
   tiles: "1x1"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "${project.topModule}"
+  top_module:  "${topModule}"
   
   # List your project's source files here. Source files must be in ./src and you must list each source file separately, one per line:
   source_files:
@@ -72,12 +73,13 @@ export function downloadURL(url: string, filename: string) {
 }
 
 export async function exportProject(project: Project) {
+  const topModule = detectTopModule(project.sources);
   const currentTime = new Date();
   const archive = [
     {
       name: 'info.yaml',
       date: currentTime,
-      input: infoYaml(project),
+      input: infoYaml(project, topModule),
     },
     {
       name: 'test/test.py',
@@ -98,6 +100,6 @@ export async function exportProject(project: Project) {
 
   // get the ZIP stream in a Blob
   const blob = await downloadZip(archive).blob();
-  const filename = project.topModule.replace(/[/<>:"\\|?*]/g, '_').replace(/(\.[^.]+)?$/, '.zip');
+  const filename = topModule.replace(/[/<>:"\\|?*]/g, '_').replace(/(\.[^.]+)?$/, '.zip');
   downloadURL(URL.createObjectURL(blob), filename.length > 4 ? filename : 'project.zip');
 }

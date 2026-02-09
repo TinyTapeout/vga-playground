@@ -14,6 +14,7 @@ import {
   VGA_WIDTH,
 } from './sim/vga';
 import { compileVerilator } from './verilator/compile';
+import { detectTopModule } from './verilog';
 
 let currentProject = structuredClone(examples[0]);
 
@@ -59,7 +60,7 @@ const editor = monaco.editor.create(codeEditorDiv!, {
 });
 
 const res = await compileVerilator({
-  topModule: currentProject.topModule,
+  topModule: detectTopModule(currentProject.sources),
   sources: currentProject.sources,
 });
 if (!res.output) {
@@ -159,7 +160,7 @@ editor.onDidChangeModelContent(async () => {
     'project.v': editor.getValue(),
   };
   const res = await compileVerilator({
-    topModule: currentProject.topModule,
+    topModule: detectTopModule(currentProject.sources),
     sources: currentProject.sources,
   });
   monaco.editor.setModelMarkers(

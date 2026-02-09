@@ -5,7 +5,6 @@ import project_v from './project.v?raw';
 export const gamepad = {
   name: 'Gamepad',
   author: 'Uri Shaked',
-  topModule: 'tt_um_vga_example',
   sources: {
     'project.v': project_v + '\n\n' + gamepad_pmod_v,
     'hvsync_generator.v': hvsync_generator_v,
