@@ -4,6 +4,7 @@ import { FPSCounter } from './FPSCounter';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
+import { decodeVGAOutput, renderVGAFrame, resetModule, VGA_HEIGHT, VGA_WIDTH } from './sim/vga';
 import { compileVerilator } from './verilator/compile';
 
 let currentProject = structuredClone(examples[0]);
@@ -67,13 +68,7 @@ const uio_out_offset_in_jmod_databuf = jmod.globals.lookup('uio_out').offset;
 const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup('uio_oe').offset;
 
 function reset() {
-  const ui_in = jmod.state.ui_in;
-  jmod.powercycle();
-  jmod.state.ena = 1;
-  jmod.state.rst_n = 0;
-  jmod.state.ui_in = ui_in;
-  jmod.tick2(10);
-  jmod.state.rst_n = 1;
+  resetModule(jmod);
 }
 reset();
 
@@ -81,15 +76,7 @@ function getVGASignals() {
   // it is significanly faster to read 'uo_out' value directly from the jmod data buffer
   // instead of jmod.state.uo_out acccessor property
   // see HDLModuleWASM.defineProperty() implementation for inner details on how accessor works
-  const uo_out = jmod.data8[uo_out_offset_in_jmod_databuf];
-
-  return {
-    hsync: !!(uo_out & 0b10000000),
-    vsync: !!(uo_out & 0b00001000),
-    r: ((uo_out & 0b00000001) << 1) | ((uo_out & 0b00010000) >> 4),
-    g: ((uo_out & 0b00000010) << 0) | ((uo_out & 0b00100000) >> 5),
-    b: ((uo_out & 0b00000100) >> 1) | ((uo_out & 0b01000000) >> 6),
-  };
+  return decodeVGAOutput(jmod.data8[uo_out_offset_in_jmod_databuf]);
 }
 
 function getAudioSignal() {
@@ -192,7 +179,7 @@ editor.onDidChangeModelContent(async () => {
 
 const canvas = document.querySelector<HTMLCanvasElement>('#vga-canvas');
 const ctx = canvas?.getContext('2d');
-const imageData = ctx?.createImageData(736, 520);
+const imageData = ctx?.createImageData(VGA_WIDTH, VGA_HEIGHT);
 const fpsDisplay = document.querySelector('#fps-count');
 const audioLatencyDisplay = document.querySelector('#audio-latency-ms');
 
@@ -224,27 +211,10 @@ function animationFrame(now: number) {
 
   enableAudioUpdate = audioPlayer.needsFeeding();
   const data = new Uint8Array(imageData.data.buffer);
-  frameLoop: for (let y = 0; y < 520; y++) {
-    waitFor(() => !getVGASignals().hsync);
-    updateGamepadPmod();
-    for (let x = 0; x < 736; x++) {
-      const offset = (y * 736 + x) * 4;
-      jmod.tick2(1);
-      updateAudio();
-      const { hsync, vsync, r, g, b } = getVGASignals();
-      if (hsync) {
-        break;
-      }
-      if (vsync) {
-        break frameLoop;
-      }
-      data[offset] = r * 85;
-      data[offset + 1] = g * 85;
-      data[offset + 2] = b * 85;
-      data[offset + 3] = 0xff;
-    }
-    waitFor(() => getVGASignals().hsync);
-  }
+  renderVGAFrame(jmod, data, {
+    onTick: updateAudio,
+    onLine: updateGamepadPmod,
+  });
   ctx!.putImageData(imageData, 0, 0);
   waitFor(() => getVGASignals().vsync);
   waitFor(() => !getVGASignals().vsync);

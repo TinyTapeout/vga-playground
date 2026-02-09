@@ -1,20 +1,29 @@
 import { VerilogXMLParser } from '../sim/vxmlparser';
 import { ErrorParser, IErrorMessage } from './ErrorParser';
 import verilator_bin from './verilator_bin';
-import verilator_wasm from './verilator_bin.wasm?url';
 
-const verilator_wasm_bin = await fetch(verilator_wasm).then((res) => res.arrayBuffer());
+let browserWasmBin: ArrayBuffer | null = null;
 
 export interface ICompileOptions {
   topModule: string;
   sources: Record<string, string>;
+  wasmBinary?: ArrayBuffer | Buffer;
 }
 
 export async function compileVerilator(opts: ICompileOptions) {
+  let wasmBinary = opts.wasmBinary;
+  if (!wasmBinary) {
+    if (!browserWasmBin) {
+      const { default: wasmUrl } = await import('./verilator_bin.wasm?url');
+      browserWasmBin = await fetch(wasmUrl).then((res) => res.arrayBuffer());
+    }
+    wasmBinary = browserWasmBin;
+  }
+
   const errorParser = new ErrorParser();
 
   const verilatorInst = verilator_bin({
-    wasmBinary: verilator_wasm_bin,
+    wasmBinary,
     noInitialRun: true,
     noExitRuntime: true,
     print: console.log,

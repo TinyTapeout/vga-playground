@@ -25,7 +25,6 @@ module tt_um_vga_example(
   wire video_active;
   wire [9:0] pix_x;
   wire [9:0] pix_y;
-  wire sound;
 
   // TinyVGA PMOD
   assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
@@ -62,5 +61,8 @@ module tt_um_vga_example(
       counter <= counter + 1;
     end
   end
-  
+
+  // Suppress unused signals warning
+  wire _unused_ok_ = &{moving_x, pix_y};
+
 endmodule
