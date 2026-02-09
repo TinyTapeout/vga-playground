@@ -104,6 +104,8 @@ export function isVarDecl(arg: any): arg is HDLVariableDef {
 export interface HDLConstant extends HDLDataTypeObject {
   cvalue: number;
   bigvalue: bigint;
+  /** Original bit width from Verilog literal (e.g., 28 for 28'sh4000) */
+  origWidth?: number;
 }
 
 export function isConstExpr(arg: any): arg is HDLConstant {

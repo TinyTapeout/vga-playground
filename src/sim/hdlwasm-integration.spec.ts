@@ -695,4 +695,46 @@ describe('Full Verilog -> WASM Pipeline', () => {
       mod.dispose();
     }, 30000);
   });
+
+  describe('Signed comparisons', () => {
+    test('should sign-extend narrower-than-container signed values before comparing', async () => {
+      // Reproduces issue #15: $signed(28-bit value) > 28'sh4000
+      // Verilator stores the 28-bit signed value in a 32-bit container but only
+      // sign-extends to bit 27. Without the fix, i32.lt_s uses bit 31 as the sign
+      // bit, so negative 28-bit values (bit 27=1, bit 31=0) are treated as positive.
+      const verilog = `
+        module signed_compare(
+          input wire [15:0] val,
+          output wire result
+        );
+          assign result = $signed({{12{val[15]}}, val}) > 28'sh4000;
+        endmodule
+      `;
+
+      const xmlParser = await compileVerilog('signed_compare', {
+        'signed_compare.v': verilog,
+      });
+
+      const mod = await createModule(xmlParser);
+      mod.powercycle();
+
+      // 0x5000 = 20480 > 16384 → true
+      mod.state.val = 0x5000;
+      mod.eval();
+      expect(mod.state.result).toBe(1);
+
+      // 0x3000 = 12288 < 16384 → false
+      mod.state.val = 0x3000;
+      mod.eval();
+      expect(mod.state.result).toBe(0);
+
+      // 0xF000: sign-extended to 28 bits → 0xFFFF000 = -4096, which is < 16384 → false
+      // This was the bug: without the fix, 0x0FFFF000 is positive in 32-bit signed
+      mod.state.val = 0xf000;
+      mod.eval();
+      expect(mod.state.result).toBe(0);
+
+      mod.dispose();
+    }, 30000);
+  });
 });

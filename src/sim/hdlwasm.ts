@@ -2297,6 +2297,79 @@ export class HDLModuleWASM implements HDLModuleRunner {
   }
 
   /**
+   * Signed relational comparison with proper sign extension.
+   *
+   * Verilator may store signed values that are narrower than their container type
+   * (e.g., a 28-bit signed value in a 32-bit i32). The sign bit may not be at the
+   * MSB of the container, so we need to sign-extend before using i32.lt_s etc.
+   *
+   * We determine the effective comparison width from:
+   * 1. A constant operand's origWidth (parsed from Verilog literal, e.g. 28'sh4000)
+   * 2. The operand dtype's left+1 if narrower than the container
+   */
+  signedRelop(e: HDLBinop, f_op: (a: number, b: number) => number) {
+    let left = this.e2w(e.left);
+    let right = this.e2w(e.right);
+
+    const signWidth = this.getSignedComparisonWidth(e);
+    if (signWidth !== null) {
+      const inst = this.i3264rel(e);
+      const containerBits = hasDataType(e.left) && getDataTypeSize(e.left.dtype) <= 4 ? 32 : 64;
+      if (signWidth < containerBits) {
+        // Sign-extend both operands from signWidth to containerBits
+        const shift = inst.const(containerBits - signWidth, 0);
+        left = inst.shr_s(inst.shl(left, shift), shift);
+        right = inst.shr_s(inst.shl(right, shift), shift);
+      }
+    }
+
+    return f_op(left, right);
+  }
+
+  /**
+   * Determine the effective signed comparison width.
+   * Returns null if both operands use the full container width.
+   */
+  private getSignedComparisonWidth(e: HDLBinop): number | null {
+    let width: number | null = null;
+
+    // Check if either operand is a constant with a narrower origWidth
+    if (isConstExpr(e.left) && (e.left as HDLConstant).origWidth != null) {
+      const cst = e.left as HDLConstant;
+      if (hasDataType(cst) && isLogicType(cst.dtype) && cst.dtype.signed) {
+        width = cst.origWidth;
+      }
+    }
+    if (isConstExpr(e.right) && (e.right as HDLConstant).origWidth != null) {
+      const cst = e.right as HDLConstant;
+      if (hasDataType(cst) && isLogicType(cst.dtype) && cst.dtype.signed) {
+        const w = cst.origWidth;
+        if (width === null || w < width) width = w;
+      }
+    }
+
+    // Also check if the dtype left+1 is narrower than the container
+    if (width === null) {
+      if (hasDataType(e.left) && isLogicType(e.left.dtype) && e.left.dtype.signed) {
+        const dtypeWidth = e.left.dtype.left + 1;
+        const containerBits = getDataTypeSize(e.left.dtype) <= 4 ? 32 : 64;
+        if (dtypeWidth < containerBits) {
+          width = dtypeWidth;
+        }
+      }
+      if (hasDataType(e.right) && isLogicType(e.right.dtype) && e.right.dtype.signed) {
+        const dtypeWidth = e.right.dtype.left + 1;
+        const containerBits = getDataTypeSize(e.right.dtype) <= 4 ? 32 : 64;
+        if (dtypeWidth < containerBits) {
+          if (width === null || dtypeWidth < width) width = dtypeWidth;
+        }
+      }
+    }
+
+    return width;
+  }
+
+  /**
    * Check if this is a comparison involving wide operands
    */
   private isWideComparison(e: HDLBinop): boolean {
@@ -2346,25 +2419,25 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (this.isWideComparison(e)) {
       return this.wideGt(e, true);
     }
-    return this.relop(e, this.i3264rel(e).gt_s);
+    return this.signedRelop(e, this.i3264rel(e).gt_s);
   }
   _lts2wasm(e: HDLBinop) {
     if (this.isWideComparison(e)) {
       return this.wideLt(e, true);
     }
-    return this.relop(e, this.i3264rel(e).lt_s);
+    return this.signedRelop(e, this.i3264rel(e).lt_s);
   }
   _gtes2wasm(e: HDLBinop) {
     if (this.isWideComparison(e)) {
       return this.wideGte(e, true);
     }
-    return this.relop(e, this.i3264rel(e).ge_s);
+    return this.signedRelop(e, this.i3264rel(e).ge_s);
   }
   _ltes2wasm(e: HDLBinop) {
     if (this.isWideComparison(e)) {
       return this.wideLte(e, true);
     }
-    return this.relop(e, this.i3264rel(e).le_s);
+    return this.signedRelop(e, this.i3264rel(e).le_s);
   }
 
   /**

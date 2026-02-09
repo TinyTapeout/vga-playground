@@ -156,15 +156,16 @@ export class VerilogXMLParser implements HDLUnit {
     }
   }
 
-  parseConstValue(s: string): number | bigint {
+  parseConstValue(s: string): { value: number | bigint; origWidth: number } {
     // Match constants like 32'hABCD or 512'h0000_1234_... (with optional underscores)
     const re_const = /(\d+)'([s]?)h([0-9a-f_]+)/i;
     const m = re_const.exec(s);
     if (m) {
+      const origWidth = parseInt(m[1]);
       // Remove underscores from hex string
       const numstr = m[3].replace(/_/g, '');
-      if (numstr.length <= 8) return parseInt(numstr, 16);
-      else return BigInt('0x' + numstr);
+      if (numstr.length <= 8) return { value: parseInt(numstr, 16), origWidth };
+      else return { value: BigInt('0x' + numstr), origWidth };
     } else {
       throw new CompileError(this.cur_loc, `could not parse constant "${s}"`);
     }
@@ -226,12 +227,13 @@ export class VerilogXMLParser implements HDLUnit {
 
   visit_const(node: XMLNode): HDLConstant {
     const name = node.attrs['name'];
-    const cvalue = this.parseConstValue(name);
+    const { value, origWidth } = this.parseConstValue(name);
     const constdef: HDLConstant = {
       $loc: this.parseSourceLocation(node),
       dtype: null,
-      cvalue: typeof cvalue === 'number' ? cvalue : null,
-      bigvalue: typeof cvalue === 'bigint' ? cvalue : null,
+      cvalue: typeof value === 'number' ? value : null,
+      bigvalue: typeof value === 'bigint' ? value : null,
+      origWidth,
     };
     this.deferDataType(node, constdef);
     return constdef;
