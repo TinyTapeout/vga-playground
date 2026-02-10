@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor';
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { AudioEngine } from './AudioEngine';
 import { FPSCounter } from './FPSCounter';
 import { InputController } from './InputController';
@@ -19,6 +20,10 @@ import { FileTabs } from './ui/FileTabs';
 import { initPresetBar } from './ui/PresetBar';
 import { compileVerilator } from './verilator/compile';
 import { detectTopModule } from './verilog';
+
+self.MonacoEnvironment = {
+  getWorker: () => new editorWorker(),
+};
 
 let currentProject = structuredClone(examples[0]);
 
