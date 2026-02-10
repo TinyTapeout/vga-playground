@@ -1,8 +1,12 @@
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
 header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   height: 40px;
   display: flex;
   align-items: center;
@@ -10,6 +14,7 @@ header {
   padding: 0 8px;
   background: #de3f89;
   color: white;
+  flex-shrink: 0;
 }
 
 .flex-spacer {
@@ -17,11 +22,8 @@ header {
 }
 
 main {
-  position: absolute;
-  top: 40px;
-  left: 0;
-  bottom: 0;
-  right: 0;
+  flex: 1;
+  min-height: 0;
   display: flex;
   justify-content: center;
   align-items: stretch;
@@ -39,19 +41,25 @@ main {
   max-width: 50%;
 }
 
-#audio-latency-display {
-  position: absolute;
-  top: 8px;
-  right: 80px;
+#vga-canvas {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.status-bar {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  padding: 4px 16px;
   font-variant-numeric: tabular-nums;
+}
+
+#audio-latency-display {
   color: grey;
 }
 
 #fps-display {
-  position: absolute;
-  top: 8px;
-  right: 16px;
-  font-variant-numeric: tabular-nums;
   color: white;
 }
 
