@@ -17,6 +17,7 @@ import { compileVerilator } from './verilator/compile';
 import { detectTopModule } from './verilog';
 
 let currentProject = structuredClone(examples[0]);
+let currentFileName = 'project.v';
 
 const inputButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('#input-values button'),
@@ -58,6 +59,117 @@ const editor = monaco.editor.create(codeEditorDiv!, {
     enabled: false,
   },
 });
+
+const fileTabsContainer = document.getElementById('file-tabs')!;
+
+const tabContextMenu = document.createElement('div');
+tabContextMenu.className = 'tab-context-menu';
+tabContextMenu.style.display = 'none';
+document.body.appendChild(tabContextMenu);
+
+document.addEventListener('click', () => {
+  tabContextMenu.style.display = 'none';
+});
+
+function showTabContextMenu(e: MouseEvent, fileName: string) {
+  e.preventDefault();
+  tabContextMenu.innerHTML = '';
+
+  const renameItem = document.createElement('div');
+  renameItem.textContent = 'Rename';
+  renameItem.className = 'tab-context-menu-item';
+  renameItem.addEventListener('click', () => {
+    const newName = prompt('Rename file:', fileName);
+    if (!newName || newName === fileName) return;
+    if (!newName.endsWith('.v')) {
+      alert('File name must end with .v');
+      return;
+    }
+    if (currentProject.sources[newName] != null) {
+      alert('A file with that name already exists');
+      return;
+    }
+    const content = currentProject.sources[fileName];
+    delete currentProject.sources[fileName];
+    currentProject.sources[newName] = content;
+    if (currentFileName === fileName) {
+      currentFileName = newName;
+    }
+    renderFileTabs();
+  });
+  tabContextMenu.appendChild(renameItem);
+
+  const fileCount = Object.keys(currentProject.sources).length;
+  if (fileCount > 1) {
+    const deleteItem = document.createElement('div');
+    deleteItem.textContent = 'Delete';
+    deleteItem.className = 'tab-context-menu-item';
+    deleteItem.addEventListener('click', () => {
+      if (!confirm(`Delete "${fileName}"?`)) return;
+      delete currentProject.sources[fileName];
+      if (currentFileName === fileName) {
+        currentFileName = Object.keys(currentProject.sources)[0];
+        editor.setValue(currentProject.sources[currentFileName]);
+      }
+      renderFileTabs();
+    });
+    tabContextMenu.appendChild(deleteItem);
+  }
+
+  tabContextMenu.style.display = 'block';
+  tabContextMenu.style.left = `${e.clientX}px`;
+  tabContextMenu.style.top = `${e.clientY}px`;
+}
+
+function switchToFile(fileName: string) {
+  currentProject.sources[currentFileName] = editor.getValue();
+  currentFileName = fileName;
+  editor.setValue(currentProject.sources[currentFileName]);
+  renderFileTabs();
+  updateEditorMarkers();
+}
+
+function renderFileTabs() {
+  fileTabsContainer.innerHTML = '';
+  for (const fileName of Object.keys(currentProject.sources)) {
+    const tab = document.createElement('button');
+    tab.textContent = fileName;
+    if (fileName === currentFileName) {
+      tab.classList.add('active');
+    }
+    tab.addEventListener('click', () => {
+      if (fileName !== currentFileName) {
+        switchToFile(fileName);
+      }
+    });
+    tab.addEventListener('contextmenu', (e) => showTabContextMenu(e, fileName));
+    fileTabsContainer.appendChild(tab);
+  }
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '+';
+  addBtn.classList.add('add-file');
+  addBtn.title = 'Add new file';
+  addBtn.addEventListener('click', () => {
+    const name = prompt('New file name (must end with .v):', 'new_module.v');
+    if (!name) return;
+    if (!name.endsWith('.v')) {
+      alert('File name must end with .v');
+      return;
+    }
+    if (currentProject.sources[name] != null) {
+      alert('A file with that name already exists');
+      return;
+    }
+    currentProject.sources[currentFileName] = editor.getValue();
+    currentProject.sources[name] = '';
+    currentFileName = name;
+    editor.setValue('');
+    renderFileTabs();
+  });
+  fileTabsContainer.appendChild(addBtn);
+}
+
+renderFileTabs();
 
 const res = await compileVerilator({
   topModule: detectTopModule(currentProject.sources),
@@ -153,28 +265,49 @@ function updateGamepadPmod() {
 let stopped = false;
 const fpsCounter = new FPSCounter();
 
+type MarkerData = monaco.editor.IMarkerData;
+const markersPerFile: Record<string, MarkerData[]> = {};
+
+function toMarker(e: {
+  line: number;
+  column: number;
+  endColumn?: number;
+  message: string;
+  type: string;
+}): MarkerData {
+  return {
+    startLineNumber: e.line,
+    endLineNumber: e.line,
+    startColumn: e.column,
+    endColumn: e.endColumn ?? 999,
+    message: e.message,
+    severity: e.type === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+  };
+}
+
+function updateEditorMarkers() {
+  const markers = markersPerFile[currentFileName] ?? [];
+  monaco.editor.setModelMarkers(editor.getModel()!, 'error', markers);
+}
+
 editor.onDidChangeModelContent(async () => {
   stopped = true;
-  currentProject.sources = {
-    ...currentProject.sources,
-    'project.v': editor.getValue(),
-  };
+  currentProject.sources[currentFileName] = editor.getValue();
   const res = await compileVerilator({
     topModule: detectTopModule(currentProject.sources),
     sources: currentProject.sources,
   });
-  monaco.editor.setModelMarkers(
-    editor.getModel()!,
-    'error',
-    res.errors.map((e) => ({
-      startLineNumber: e.line,
-      endLineNumber: e.line,
-      startColumn: e.column,
-      endColumn: e.endColumn ?? 999,
-      message: e.message,
-      severity: e.type === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
-    })),
-  );
+  for (const key of Object.keys(markersPerFile)) {
+    delete markersPerFile[key];
+  }
+  for (const e of res.errors) {
+    const file = e.file;
+    if (!markersPerFile[file]) {
+      markersPerFile[file] = [];
+    }
+    markersPerFile[file].push(toMarker(e));
+  }
+  updateEditorMarkers();
   if (!res.output) {
     return;
   }
@@ -247,7 +380,9 @@ for (const example of examples) {
     activePresetButton = button;
     button.scrollIntoView({ behavior: 'smooth', inline: 'nearest' });
     currentProject = structuredClone(example);
+    currentFileName = 'project.v';
     editor.setValue(currentProject.sources['project.v']);
+    renderFileTabs();
   });
   presetButtonsContainer?.appendChild(button);
 }

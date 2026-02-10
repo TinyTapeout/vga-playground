@@ -6,7 +6,8 @@ export const gamepad = {
   name: 'Gamepad',
   author: 'Uri Shaked',
   sources: {
-    'project.v': project_v + '\n\n' + gamepad_pmod_v,
+    'project.v': project_v,
+    'gamepad_pmod.v': gamepad_pmod_v,
     'hvsync_generator.v': hvsync_generator_v,
   },
 };

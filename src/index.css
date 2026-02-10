@@ -3,6 +3,7 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: clip;
+  font-family: system-ui, sans-serif;
 }
 
 header {
@@ -30,11 +31,77 @@ main {
   background-color: black;
 }
 
+#editor-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  width: 50%;
+}
+
+#file-tabs {
+  display: flex;
+  background: #1e1e1e;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+#file-tabs button {
+  padding: 6px 16px;
+  background: #2d2d2d;
+  color: #999;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#file-tabs button:hover {
+  background: #333;
+  color: #ccc;
+}
+
+#file-tabs button.active {
+  background: #1e1e1e;
+  color: #ddd;
+  border-bottom-color: #de3f89;
+}
+
+#file-tabs button.add-file {
+  padding: 6px 12px;
+  color: #666;
+  font-size: 16px;
+}
+
+#file-tabs button.add-file:hover {
+  color: #ccc;
+}
+
 #code-editor {
   flex: 1;
   min-height: 200px;
-  height: 100%;
-  width: 50%;
+}
+
+.tab-context-menu {
+  position: fixed;
+  background: #2d2d2d;
+  border: 1px solid #555;
+  border-radius: 4px;
+  z-index: 1000;
+  min-width: 100px;
+}
+
+.tab-context-menu-item {
+  padding: 6px 16px;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab-context-menu-item:hover {
+  background: #444;
 }
 
 #vga-canvas-container {
@@ -140,11 +207,10 @@ main {
     max-height: 40vh;
   }
 
-  #code-editor {
+  #editor-panel {
     flex: 1;
     width: 100%;
     min-height: 150px;
-    height: auto;
   }
 
   .header-title {
