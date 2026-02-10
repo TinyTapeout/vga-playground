@@ -2,6 +2,7 @@ import hvsync_generator_v from '../common/hvsync_generator.v?raw';
 import project_v from './project.v?raw';
 
 export const drop = {
+  id: 'drop',
   name: '"Drop" demo',
   author: 'Renaldas Zioma',
   sources: {

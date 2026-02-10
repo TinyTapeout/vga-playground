@@ -3,6 +3,7 @@ import hvsync_generator_v from '../common/hvsync_generator.v?raw';
 import project_v from './project.v?raw';
 
 export const gamepad = {
+  id: 'gamepad',
   name: 'Gamepad',
   author: 'Uri Shaked',
   sources: {

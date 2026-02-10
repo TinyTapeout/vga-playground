@@ -1,11 +1,20 @@
 import { Project } from '../examples/Project';
 
-export function initPresetBar(
-  container: HTMLElement,
-  examples: Project[],
-  onSelect: (example: Project) => void,
-) {
+export interface PresetBarHandle {
+  clearActive(): void;
+}
+
+export interface PresetBarOptions {
+  container: HTMLElement;
+  examples: Project[];
+  initialPreset?: string;
+  onSelect: (example: Project) => void;
+}
+
+export function initPresetBar(opts: PresetBarOptions): PresetBarHandle {
+  const { container, examples, initialPreset, onSelect } = opts;
   let activeButton: HTMLButtonElement | null = null;
+
   for (const example of examples) {
     const button = document.createElement('button');
     button.textContent = example.name;
@@ -15,12 +24,29 @@ export function initPresetBar(
       activeButton = button;
       button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       onSelect(example);
+      history.replaceState(null, '', `?preset=${example.id}`);
     });
     container.appendChild(button);
+
+    if (initialPreset != null && example.id === initialPreset) {
+      button.classList.add('active');
+      activeButton = button;
+    }
   }
-  const firstButton = container.querySelector('button');
-  if (firstButton) {
-    firstButton.classList.add('active');
-    activeButton = firstButton;
+
+  // If no initialPreset matched (or none was provided), activate the first button
+  if (!activeButton) {
+    const firstButton = container.querySelector('button');
+    if (firstButton) {
+      firstButton.classList.add('active');
+      activeButton = firstButton;
+    }
   }
+
+  return {
+    clearActive() {
+      activeButton?.classList.remove('active');
+      activeButton = null;
+    },
+  };
 }

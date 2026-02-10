@@ -4,6 +4,7 @@ import { FPSCounter } from './FPSCounter';
 import { InputController } from './InputController';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
+import { loadProjectFromRepo } from './github/loadProject';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import {
   decodeVGAOutput,
@@ -21,8 +22,27 @@ import { detectTopModule } from './verilog';
 
 let currentProject = structuredClone(examples[0]);
 
-const codeEditorDiv = document.getElementById('code-editor');
-const editor = monaco.editor.create(codeEditorDiv!, {
+const params = new URLSearchParams(window.location.search);
+const repoParam = params.get('repo');
+const presetParam = params.get('preset');
+
+const codeEditorDiv = document.getElementById('code-editor')!;
+
+if (repoParam) {
+  codeEditorDiv.textContent = 'Loading project from GitHub...';
+  try {
+    currentProject = await loadProjectFromRepo(repoParam);
+  } catch (e) {
+    console.error('Failed to load project from URL:', e);
+  }
+} else if (presetParam) {
+  const match = examples.find((ex) => ex.id === presetParam);
+  if (match) {
+    currentProject = structuredClone(match);
+  }
+}
+
+const editor = monaco.editor.create(codeEditorDiv, {
   value: currentProject.sources['project.v'],
   language: 'systemverilog',
   scrollBeyondLastLine: false,
@@ -179,12 +199,21 @@ function animationFrame(now: number) {
 
 requestAnimationFrame(animationFrame);
 
-initPresetBar(document.querySelector('#preset-buttons')!, examples, (example) => {
-  currentProject = structuredClone(example);
-  fileTabs.currentFileName = 'project.v';
-  editor.setValue(currentProject.sources['project.v']);
-  fileTabs.render();
+const presetBar = initPresetBar({
+  container: document.querySelector('#preset-buttons')!,
+  examples,
+  initialPreset: !repoParam ? presetParam ?? examples[0].id : undefined,
+  onSelect: (example) => {
+    currentProject = structuredClone(example);
+    fileTabs.currentFileName = 'project.v';
+    editor.setValue(currentProject.sources['project.v']);
+    fileTabs.render();
+  },
 });
+
+if (repoParam) {
+  presetBar.clearActive();
+}
 
 let resizeTimeout: ReturnType<typeof setTimeout>;
 window.addEventListener('resize', () => {
