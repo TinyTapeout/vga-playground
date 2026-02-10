@@ -1,0 +1,10 @@
+#input-values {
+  padding: 8px 8px;
+  color: #ccc;
+  background: #333;
+}
+
+#input-values button.active,
+#gamepad-pmod-inputs button.active {
+  background: #0f0;
+}

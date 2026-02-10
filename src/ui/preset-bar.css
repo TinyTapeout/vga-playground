@@ -1,0 +1,51 @@
+#preset-bar {
+  display: flex;
+  align-items: center;
+  background: #222;
+  overflow-x: auto;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  min-height: 30px;
+}
+
+#preset-bar .preset-label {
+  color: #999;
+  white-space: nowrap;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+#preset-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+#preset-buttons button {
+  border-radius: 16px;
+  background: #333;
+  color: #ddd;
+  white-space: nowrap;
+  border: none;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#preset-buttons button:hover {
+  background: #444;
+}
+
+#preset-buttons button.active {
+  background: #de3f89;
+  color: white;
+}
+
+#download-button {
+  margin-left: 8px;
+}
+
+#download-button svg:hover {
+  cursor: pointer;
+  fill: white;
+}

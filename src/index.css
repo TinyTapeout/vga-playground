@@ -1,3 +1,7 @@
+@import './ui/controls.css';
+@import './ui/file-tabs.css';
+@import './ui/preset-bar.css';
+
 body {
   display: flex;
   flex-direction: column;
@@ -39,77 +43,9 @@ main {
   width: 50%;
 }
 
-#file-tabs {
-  display: flex;
-  background: #1e1e1e;
-  overflow-x: auto;
-  flex-shrink: 0;
-  scrollbar-width: thin;
-}
-
-#file-tabs button {
-  padding: 6px 16px;
-  background: #2d2d2d;
-  color: #999;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-#file-tabs button:hover {
-  background: #333;
-  color: #ccc;
-}
-
-#file-tabs button.active {
-  background: #1e1e1e;
-  color: #ddd;
-  border-bottom-color: #de3f89;
-}
-
-#file-tabs button.has-errors {
-  color: #f66;
-}
-
-#file-tabs button.has-warnings {
-  color: #fa0;
-}
-
-#file-tabs button.add-file {
-  padding: 6px 12px;
-  color: #666;
-  font-size: 16px;
-}
-
-#file-tabs button.add-file:hover {
-  color: #ccc;
-}
-
 #code-editor {
   flex: 1;
   min-height: 200px;
-}
-
-.tab-context-menu {
-  position: fixed;
-  background: #2d2d2d;
-  border: 1px solid #555;
-  border-radius: 4px;
-  z-index: 1000;
-  min-width: 100px;
-}
-
-.tab-context-menu-item {
-  padding: 6px 16px;
-  color: #ddd;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.tab-context-menu-item:hover {
-  background: #444;
 }
 
 #vga-canvas-container {
@@ -136,69 +72,6 @@ main {
 
 #fps-display {
   color: white;
-}
-
-#preset-bar {
-  display: flex;
-  align-items: center;
-  background: #222;
-  overflow-x: auto;
-  padding: 4px 8px;
-  flex-shrink: 0;
-  scrollbar-width: thin;
-  min-height: 30px;
-}
-
-#preset-bar .preset-label {
-  color: #999;
-  white-space: nowrap;
-  margin-right: 8px;
-  font-size: 14px;
-}
-
-#preset-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-#preset-buttons button {
-  border-radius: 16px;
-  background: #333;
-  color: #ddd;
-  white-space: nowrap;
-  border: none;
-  padding: 4px 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-#preset-buttons button:hover {
-  background: #444;
-}
-
-#preset-buttons button.active {
-  background: #de3f89;
-  color: white;
-}
-
-#download-button {
-  margin-left: 8px;
-}
-
-#download-button svg:hover {
-  cursor: pointer;
-  fill: white;
-}
-
-#input-values {
-  padding: 8px 8px;
-  color: #ccc;
-  background: #333;
-}
-
-#input-values button.active,
-#gamepad-pmod-inputs button.active {
-  background: #0f0;
 }
 
 @media (max-width: 799px) {
