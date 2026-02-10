@@ -258,8 +258,10 @@ if (firstPresetButton) {
   activePresetButton = firstPresetButton;
 }
 
+let resizeTimeout: ReturnType<typeof setTimeout>;
 window.addEventListener('resize', () => {
-  editor.layout();
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => editor.layout(), 100);
 });
 
 window.addEventListener('visibilitychange', () => {

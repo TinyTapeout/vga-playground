@@ -125,3 +125,33 @@ main {
 #gamepad-pmod-inputs button.active {
   background: #0f0;
 }
+
+@media (max-width: 799px) {
+  main {
+    flex-direction: column;
+  }
+
+  #vga-canvas-container {
+    max-width: 100%;
+    order: -1;
+  }
+
+  #vga-canvas {
+    max-height: 40vh;
+  }
+
+  #code-editor {
+    flex: 1;
+    width: 100%;
+    min-height: 150px;
+    height: auto;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  #input-values {
+    flex-wrap: wrap;
+  }
+}
