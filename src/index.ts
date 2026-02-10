@@ -62,6 +62,9 @@ const editor = monaco.editor.create(codeEditorDiv!, {
 
 const fileTabsContainer = document.getElementById('file-tabs')!;
 
+type MarkerData = monaco.editor.IMarkerData;
+const markersPerFile: Record<string, MarkerData[]> = {};
+
 const tabContextMenu = document.createElement('div');
 tabContextMenu.className = 'tab-context-menu';
 tabContextMenu.style.display = 'none';
@@ -133,7 +136,15 @@ function renderFileTabs() {
   fileTabsContainer.innerHTML = '';
   for (const fileName of Object.keys(currentProject.sources)) {
     const tab = document.createElement('button');
+    const markers = markersPerFile[fileName] ?? [];
+    const hasErrors = markers.some((m) => m.severity === monaco.MarkerSeverity.Error);
+    const hasWarnings = !hasErrors && markers.length > 0;
     tab.textContent = fileName;
+    if (hasErrors) {
+      tab.classList.add('has-errors');
+    } else if (hasWarnings) {
+      tab.classList.add('has-warnings');
+    }
     if (fileName === currentFileName) {
       tab.classList.add('active');
     }
@@ -265,9 +276,6 @@ function updateGamepadPmod() {
 let stopped = false;
 const fpsCounter = new FPSCounter();
 
-type MarkerData = monaco.editor.IMarkerData;
-const markersPerFile: Record<string, MarkerData[]> = {};
-
 function toMarker(e: {
   line: number;
   column: number;
@@ -301,13 +309,14 @@ editor.onDidChangeModelContent(async () => {
     delete markersPerFile[key];
   }
   for (const e of res.errors) {
-    const file = e.file;
+    const file = e.file.replace(/^src\//, '');
     if (!markersPerFile[file]) {
       markersPerFile[file] = [];
     }
     markersPerFile[file].push(toMarker(e));
   }
   updateEditorMarkers();
+  renderFileTabs();
   if (!res.output) {
     return;
   }
