@@ -236,15 +236,26 @@ function animationFrame(now: number) {
 
 requestAnimationFrame(animationFrame);
 
-const buttons = document.querySelector('#preset-buttons');
+let activePresetButton: HTMLButtonElement | null = null;
+const presetButtonsContainer = document.querySelector('#preset-buttons');
 for (const example of examples) {
   const button = document.createElement('button');
   button.textContent = example.name;
   button.addEventListener('click', async () => {
+    activePresetButton?.classList.remove('active');
+    button.classList.add('active');
+    activePresetButton = button;
+    button.scrollIntoView({ behavior: 'smooth', inline: 'nearest' });
     currentProject = structuredClone(example);
     editor.setValue(currentProject.sources['project.v']);
   });
-  buttons?.appendChild(button);
+  presetButtonsContainer?.appendChild(button);
+}
+// Mark first preset as active
+const firstPresetButton = presetButtonsContainer?.querySelector('button');
+if (firstPresetButton) {
+  firstPresetButton.classList.add('active');
+  activePresetButton = firstPresetButton;
 }
 
 window.addEventListener('resize', () => {

@@ -19,8 +19,6 @@
   <body>
     <header>
       <span class="header-title">Tiny Tapeout VGA Playground</span>
-      <span style="margin-left: 32px"> Presets:&nbsp;</span>
-      <span id="preset-buttons"></span>
       <span id="download-button" title="Download Zip">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -48,6 +46,10 @@
         </svg>
       </a>
     </header>
+    <nav id="preset-bar">
+      <span class="preset-label">Presets:</span>
+      <div id="preset-buttons"></div>
+    </nav>
     <main>
       <div id="code-editor"></div>
       <div id="vga-canvas-container">
