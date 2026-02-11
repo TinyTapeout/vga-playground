@@ -47,8 +47,10 @@ if (repoParam) {
   }
 }
 
+const firstFileName = Object.keys(currentProject.sources)[0];
+
 const editor = monaco.editor.create(codeEditorDiv, {
-  value: currentProject.sources['project.v'],
+  value: currentProject.sources[firstFileName],
   language: 'systemverilog',
   scrollBeyondLastLine: false,
   minimap: {
@@ -63,6 +65,7 @@ const fileTabs = new FileTabs({
   getEditorValue: () => editor.getValue(),
   setEditorValue: (v) => editor.setValue(v),
 });
+fileTabs.currentFileName = firstFileName;
 fileTabs.render();
 
 const res = await compileVerilator({
@@ -210,8 +213,9 @@ const presetBar = initPresetBar({
   initialPreset: !repoParam ? presetParam ?? examples[0].id : undefined,
   onSelect: (example) => {
     currentProject = structuredClone(example);
-    fileTabs.currentFileName = 'project.v';
-    editor.setValue(currentProject.sources['project.v']);
+    const first = Object.keys(currentProject.sources)[0];
+    fileTabs.currentFileName = first;
+    editor.setValue(currentProject.sources[first]);
     fileTabs.render();
   },
 });
