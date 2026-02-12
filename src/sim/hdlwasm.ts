@@ -227,7 +227,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
   data8!: Uint8Array;
   data16!: Uint16Array;
   data32!: Uint32Array;
-  getFileData: ((filename: string) => string | Uint8Array) | null = null;
+  getFileData: ((filename: string) => string | Uint8Array | undefined) | null = null;
   maxMemoryMB: number;
   optimize: boolean = false;
   maxEvalIterations: number = 8;

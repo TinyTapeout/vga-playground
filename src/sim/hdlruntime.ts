@@ -57,7 +57,7 @@ export class HDLModuleJS implements HDLModuleRunner {
   curconsts: Record<string, any> = {};
   constused: number = 0;
   specfuncs: VerilatorUnit[] = [];
-  getFileData: ((filename: string) => string | Uint8Array) | null = null;
+  getFileData: ((filename: string) => string | Uint8Array | undefined) | null = null;
   resetStartTimeMsec: number = 0;
 
   constructor(mod: HDLModuleDef, constpool: HDLModuleDef | null) {

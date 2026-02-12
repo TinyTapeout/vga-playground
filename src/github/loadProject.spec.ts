@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractProjectInfo, parseRepoUrl } from './loadProject';
+import { extractProjectInfo, extractReadmemPaths, parseRepoUrl } from './loadProject';
 
 describe('parseRepoUrl', () => {
   it('parses owner/repo short form', () => {
@@ -59,5 +59,36 @@ describe('extractProjectInfo', () => {
     expect(result.title).toBe('');
     expect(result.author).toBe('');
     expect(result.sourceFiles).toEqual([]);
+  });
+});
+
+describe('extractReadmemPaths', () => {
+  it('extracts paths from $readmemh', () => {
+    const sources = {
+      'main.v': '$readmemh("../data/foo.hex", arr);',
+    };
+    expect(extractReadmemPaths(sources)).toEqual(['../data/foo.hex']);
+  });
+
+  it('extracts paths from $readmemb', () => {
+    const sources = {
+      'main.v': '$readmemb("data.bin", arr);',
+    };
+    expect(extractReadmemPaths(sources)).toEqual(['data.bin']);
+  });
+
+  it('deduplicates identical paths across multiple files', () => {
+    const sources = {
+      'a.v': '$readmemh("../data/palette.hex", r);',
+      'b.v': '$readmemh("../data/palette.hex", g);',
+    };
+    expect(extractReadmemPaths(sources)).toEqual(['../data/palette.hex']);
+  });
+
+  it('returns empty array when no $readmem calls exist', () => {
+    const sources = {
+      'main.v': 'module top(); endmodule',
+    };
+    expect(extractReadmemPaths(sources)).toEqual([]);
   });
 });
