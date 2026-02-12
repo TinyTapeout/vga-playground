@@ -89,7 +89,10 @@
           <button data-index="10">L</button>
           <button data-index="11">R</button>
         </div>
-        <canvas width="736" height="520" id="vga-canvas"></canvas>
+        <div class="canvas-wrapper">
+          <canvas width="736" height="520" id="vga-canvas"></canvas>
+          <pre id="error-overlay" hidden></pre>
+        </div>
       </div>
     </main>
     <script src="src/index.ts" type="module"></script>

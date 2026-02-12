@@ -1,5 +1,5 @@
 import { VerilogXMLParser } from '../sim/vxmlparser';
-import { ErrorParser, IErrorMessage } from './ErrorParser';
+import { ErrorParser } from './ErrorParser';
 import verilator_bin from './verilator_bin';
 
 let browserWasmBin: ArrayBuffer | null = null;
@@ -84,7 +84,13 @@ export async function compileVerilator(opts: ICompileOptions) {
     return {
       errors: [
         ...errorParser.errors,
-        { file: '', line: 1, column: 1, message: 'XML parsing failed: ' + e } as IErrorMessage,
+        {
+          type: 'error' as const,
+          file: '',
+          line: 1,
+          column: 1,
+          message: 'XML parsing failed: ' + e,
+        },
       ],
     };
   }

@@ -1,0 +1,23 @@
+#error-overlay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.85);
+  color: #ccc;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 20px;
+  overflow-y: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+#error-overlay strong {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #f66;
+  font-size: 16px;
+  font-family: system-ui, sans-serif;
+}

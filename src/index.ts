@@ -1,11 +1,12 @@
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { AudioEngine } from './AudioEngine';
-import { FPSCounter } from './FPSCounter';
-import { InputController } from './InputController';
 import { examples } from './examples';
 import { exportProject } from './exportProject';
+import { FPSCounter } from './FPSCounter';
 import { loadProjectFromRepo } from './github/loadProject';
+import { InputController } from './InputController';
+import { HDLModuleDef } from './sim/hdltypes';
 import { HDLModuleWASM } from './sim/hdlwasm';
 import {
   decodeVGAOutput,
@@ -16,6 +17,7 @@ import {
   VGA_HEIGHT,
   VGA_WIDTH,
 } from './sim/vga';
+import { initErrorOverlay } from './ui/ErrorOverlay';
 import { FileTabs } from './ui/FileTabs';
 import { initPresetBar } from './ui/PresetBar';
 import { compileVerilator } from './verilator/compile';
@@ -68,43 +70,62 @@ const fileTabs = new FileTabs({
 fileTabs.currentFileName = firstFileName;
 fileTabs.render();
 
-const res = await compileVerilator({
-  topModule: detectTopModule(currentProject.sources),
-  sources: currentProject.sources,
-});
-if (!res.output) {
-  console.log(res.errors);
-  throw new Error('Compile error');
-}
+const errorOverlay = initErrorOverlay(document.getElementById('error-overlay')!);
 
-let jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
-//let jmod = new HDLModuleJS(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
-await jmod.init();
-
-const uo_out_offset_in_jmod_databuf = jmod.globals.lookup('uo_out').offset;
-const uio_out_offset_in_jmod_databuf = jmod.globals.lookup('uio_out').offset;
-const uio_oe_offset_in_jmod_databuf = jmod.globals.lookup('uio_oe').offset;
-
+// Simulation state
+let jmod: HDLModuleWASM | null = null;
+let uo_out_offset = 0;
+let uio_out_offset = 0;
+let uio_oe_offset = 0;
 let syncPolarity: SyncPolarity = { hsyncActiveLow: false, vsyncActiveLow: false };
+let stopped = true;
 
 function reset() {
+  if (!jmod) return;
   resetModule(jmod);
   syncPolarity = detectSyncPolarity(jmod);
   resetModule(jmod);
 }
-reset();
+
+async function initModule(modules: Record<string, HDLModuleDef>) {
+  if (jmod) jmod.dispose();
+  jmod = new HDLModuleWASM(modules['TOP'], modules['@CONST-POOL@']);
+  await jmod.init();
+  uo_out_offset = jmod.globals.lookup('uo_out').offset;
+  uio_out_offset = jmod.globals.lookup('uio_out').offset;
+  uio_oe_offset = jmod.globals.lookup('uio_oe').offset;
+  reset();
+}
+
+// Initial compile
+const res = await compileVerilator({
+  topModule: detectTopModule(currentProject.sources),
+  sources: currentProject.sources,
+});
+fileTabs.updateMarkers(res.errors);
+
+if (res.output) {
+  try {
+    await initModule(res.output.modules);
+    stopped = false;
+  } catch (e) {
+    errorOverlay.show('Simulation Error', e instanceof Error ? e.message : String(e));
+  }
+} else {
+  errorOverlay.showCompileErrors(res.errors);
+}
 
 function getVGASignals() {
   // it is significanly faster to read 'uo_out' value directly from the jmod data buffer
   // instead of jmod.state.uo_out acccessor property
   // see HDLModuleWASM.defineProperty() implementation for inner details on how accessor works
-  return decodeVGAOutput(jmod.data8[uo_out_offset_in_jmod_databuf], syncPolarity);
+  return decodeVGAOutput(jmod!.data8[uo_out_offset], syncPolarity);
 }
 
 function getAudioSignal() {
   // see getVGASignals() implementation above for explanation about use of jmod.data8
-  const uio_out = jmod.data8[uio_out_offset_in_jmod_databuf];
-  const uio_oe = jmod.data8[uio_oe_offset_in_jmod_databuf];
+  const uio_out = jmod!.data8[uio_out_offset];
+  const uio_oe = jmod!.data8[uio_oe_offset];
   return (uio_out & uio_oe) >> 7;
 }
 
@@ -122,9 +143,9 @@ const inputController = new InputController({
   isAudioRunning: () => audioEngine.isRunning(),
   resumeAudio: () => audioEngine.resume(),
   suspendAudio: () => audioEngine.suspend(),
-  getUiIn: () => jmod.state.ui_in,
+  getUiIn: () => jmod?.state.ui_in ?? 0,
   setUiIn: (v) => {
-    jmod.state.ui_in = v;
+    if (jmod) jmod.state.ui_in = v;
   },
   onReset: reset,
 });
@@ -137,8 +158,6 @@ audioEngine = new AudioEngine(
   () => inputController.updateAudioButton(),
 );
 
-let stopped = false;
-
 editor.onDidChangeModelContent(async () => {
   stopped = true;
   currentProject.sources[fileTabs.currentFileName] = editor.getValue();
@@ -148,15 +167,17 @@ editor.onDidChangeModelContent(async () => {
   });
   fileTabs.updateMarkers(res.errors);
   if (!res.output) {
+    errorOverlay.showCompileErrors(res.errors);
     return;
   }
-  if (jmod) {
-    jmod.dispose();
-  }
+  errorOverlay.hide();
   inputController.resetButtonStates();
-  jmod = new HDLModuleWASM(res.output.modules['TOP'], res.output.modules['@CONST-POOL@']);
-  await jmod.init();
-  reset();
+  try {
+    await initModule(res.output.modules);
+  } catch (e) {
+    errorOverlay.show('Simulation Error', e instanceof Error ? e.message : String(e));
+    return;
+  }
   fpsCounter.reset();
   stopped = false;
 });
@@ -170,7 +191,7 @@ const audioLatencyDisplay = document.querySelector('#audio-latency-ms');
 function waitFor(condition: () => boolean, timeout = 10000) {
   let counter = 0;
   while (!condition() && counter < timeout) {
-    jmod.tick2(1);
+    jmod!.tick2(1);
     audioEngine.update();
     counter++;
   }
@@ -195,7 +216,7 @@ function animationFrame(now: number) {
 
   audioEngine.enablePerTickUpdate = audioEngine.needsFeeding;
   const data = new Uint8Array(imageData.data.buffer);
-  renderVGAFrame(jmod, data, {
+  renderVGAFrame(jmod!, data, {
     polarity: syncPolarity,
     onTick: () => audioEngine.update(),
     onLine: () => inputController.updateGamepadPmod(),
