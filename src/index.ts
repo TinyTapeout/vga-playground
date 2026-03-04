@@ -60,12 +60,17 @@ const editor = monaco.editor.create(codeEditorDiv, {
   },
 });
 
+let suppressEditorChange = false;
 const fileTabs = new FileTabs({
   container: document.getElementById('file-tabs')!,
   editorModel: editor.getModel()!,
   getSources: () => currentProject.sources,
   getEditorValue: () => editor.getValue(),
-  setEditorValue: (v) => editor.setValue(v),
+  setEditorValue: (v) => {
+    suppressEditorChange = true;
+    editor.setValue(v);
+    suppressEditorChange = false;
+  },
 });
 fileTabs.currentFileName = firstFileName;
 fileTabs.render();
@@ -160,6 +165,9 @@ audioEngine = new AudioEngine(
 );
 
 editor.onDidChangeModelContent(async () => {
+  if (suppressEditorChange) {
+    return;
+  }
   stopped = true;
   currentProject.sources[fileTabs.currentFileName] = editor.getValue();
   const res = await compileVerilator({
