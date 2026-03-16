@@ -47,6 +47,7 @@ main {
 #code-editor {
   flex: 1;
   min-height: 200px;
+  overflow: hidden;
 }
 
 #vga-canvas-container {
@@ -97,6 +98,10 @@ main {
     flex: 1;
     width: 100%;
     min-height: 150px;
+  }
+
+  #code-editor {
+    min-height: 0;
   }
 
   .header-title {

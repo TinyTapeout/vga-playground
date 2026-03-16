@@ -51,10 +51,12 @@ if (repoParam) {
 
 const firstFileName = Object.keys(currentProject.sources)[0];
 
+codeEditorDiv.textContent = '';
 const editor = monaco.editor.create(codeEditorDiv, {
   value: currentProject.sources[firstFileName],
   language: 'systemverilog',
   scrollBeyondLastLine: false,
+  automaticLayout: true,
   minimap: {
     enabled: false,
   },
