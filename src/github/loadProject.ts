@@ -51,6 +51,21 @@ export function extractReadmemPaths(sources: Record<string, string>): string[] {
   return [...paths];
 }
 
+export function extractIncludePaths(sources: Record<string, string>): string[] {
+  const paths = new Set<string>();
+  const re = /`include\s+"([^"]+)"/g;
+  for (const code of Object.values(sources)) {
+    for (const match of code.matchAll(re)) {
+      paths.add(match[1]);
+    }
+  }
+  // Exclude files already present in sources
+  for (const name of Object.keys(sources)) {
+    paths.delete(name);
+  }
+  return [...paths];
+}
+
 function resolveRelativeToSrc(path: string): string {
   const parts = ('src/' + path).split('/');
   const resolved: string[] = [];
@@ -66,6 +81,24 @@ function resolveRelativeToSrc(path: string): string {
 
 function githubRawUrl(owner: string, repo: string, branch: string, path: string): string {
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+}
+
+async function tryFetchFiles(
+  paths: string[],
+  toUrl: (path: string) => string,
+): Promise<[string, string][]> {
+  const entries = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const res = await fetch(toUrl(path));
+        if (!res.ok) return null;
+        return [path, await res.text()] as const;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return entries.filter((e): e is [string, string] => e != null);
 }
 
 export async function loadProjectFromRepo(repoUrl: string): Promise<Project> {
@@ -111,28 +144,19 @@ export async function loadProjectFromRepo(repoUrl: string): Promise<Project> {
 
   const sources = Object.fromEntries(entries);
 
-  // Scan sources for $readmemh/$readmemb paths and fetch data files
-  const readmemPaths = extractReadmemPaths(sources);
-  let dataFiles: Record<string, string> | undefined;
-  if (readmemPaths.length > 0) {
-    const dataEntries = await Promise.all(
-      readmemPaths.map(async (literalPath) => {
-        const resolvedPath = resolveRelativeToSrc(literalPath);
-        const url = githubRawUrl(owner, repo, branch, resolvedPath);
-        try {
-          const res = await fetch(url);
-          if (!res.ok) return null;
-          return [literalPath, await res.text()] as const;
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const validEntries = dataEntries.filter((e): e is [string, string] => e != null);
-    if (validEntries.length > 0) {
-      dataFiles = Object.fromEntries(validEntries);
-    }
+  // Fetch header files referenced via `include
+  const includeFiles = await tryFetchFiles(extractIncludePaths(sources), (f) =>
+    githubRawUrl(owner, repo, branch, `src/${f}`),
+  );
+  for (const [name, content] of includeFiles) {
+    sources[name] = content;
   }
+
+  // Fetch data files referenced via $readmemh/$readmemb
+  const dataEntries = await tryFetchFiles(extractReadmemPaths(sources), (p) =>
+    githubRawUrl(owner, repo, branch, resolveRelativeToSrc(p)),
+  );
+  const dataFiles = dataEntries.length > 0 ? Object.fromEntries(dataEntries) : undefined;
 
   return {
     id: `${owner}/${repo}`,

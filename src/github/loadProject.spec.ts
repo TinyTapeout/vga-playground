@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { extractProjectInfo, extractReadmemPaths, parseRepoUrl } from './loadProject';
+import {
+  extractIncludePaths,
+  extractProjectInfo,
+  extractReadmemPaths,
+  parseRepoUrl,
+} from './loadProject';
 
 describe('parseRepoUrl', () => {
   it('parses owner/repo short form', () => {
@@ -90,5 +95,23 @@ describe('extractReadmemPaths', () => {
       'main.v': 'module top(); endmodule',
     };
     expect(extractReadmemPaths(sources)).toEqual([]);
+  });
+});
+
+describe('extractIncludePaths', () => {
+  it('extracts unique include paths across files', () => {
+    const sources = {
+      'a.v': '`include "defs.vh"\n`include "types.svh"',
+      'b.v': '`include "defs.vh"',
+    };
+    expect(extractIncludePaths(sources)).toEqual(['defs.vh', 'types.svh']);
+  });
+
+  it('excludes files already present in sources', () => {
+    const sources = {
+      'flag.vh': '`define FLAG ...',
+      'flag_rainbow.v': '`include "flag.vh"',
+    };
+    expect(extractIncludePaths(sources)).toEqual([]);
   });
 });

@@ -39,8 +39,11 @@ export async function compileVerilator(opts: ICompileOptions) {
   FS.mkdir('src');
   for (const [name, source] of Object.entries(opts.sources)) {
     const path = `src/${name}`;
-    sourceList.push(path);
     FS.writeFile(path, source);
+    // Header files (.vh/.svh) are pulled in via `include, not as direct sources
+    if (!name.endsWith('.vh') && !name.endsWith('.svh')) {
+      sourceList.push(path);
+    }
   }
   const xmlPath = `obj_dir/V${opts.topModule}.xml`;
   try {
