@@ -35,12 +35,14 @@ const presetParam = params.get('preset');
 
 const codeEditorDiv = document.getElementById('code-editor')!;
 
+let repoError = '';
 if (repoParam) {
   codeEditorDiv.textContent = 'Loading project from GitHub...';
   try {
     currentProject = await loadProjectFromRepo(repoParam);
   } catch (e) {
     console.error('Failed to load project from URL:', e);
+    repoError = e instanceof Error ? e.message : String(e);
   }
 } else if (presetParam) {
   const match = examples.find((ex) => ex.id === presetParam);
@@ -121,6 +123,10 @@ if (res.output) {
   }
 } else {
   errorOverlay.showCompileErrors(res.errors);
+}
+
+if (repoError) {
+  errorOverlay.show('Failed to load project', repoError);
 }
 
 function getVGASignals() {
