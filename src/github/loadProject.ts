@@ -101,16 +101,20 @@ async function tryFetchFiles(
   return entries.filter((e): e is [string, string] => e != null);
 }
 
-export async function loadProjectFromRepo(repoUrl: string): Promise<Project> {
+export async function loadProjectFromRepo(
+  repoUrl: string,
+  branchName: string | null,
+): Promise<Project> {
   const { owner, repo } = parseRepoUrl(repoUrl);
 
   // Start loading YAML parser in parallel with the fetch
   const yamlModulePromise = import('yaml');
 
-  // Try main branch first, fall back to master
+  // Try given branch first, then fall back to main branch then master
+  const branchOptions = [...(branchName !== null ? [branchName] : []), 'main', 'master'];
   let infoYaml: string | null = null;
   let branch = 'main';
-  for (const b of ['main', 'master']) {
+  for (const b of branchOptions) {
     const url = githubRawUrl(owner, repo, b, 'info.yaml');
     const res = await fetch(url);
     if (res.ok) {

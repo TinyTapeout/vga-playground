@@ -31,6 +31,7 @@ let currentProject = structuredClone(examples[0]);
 
 const params = new URLSearchParams(window.location.search);
 const repoParam = params.get('repo');
+const branchParam = params.get('branch');
 const presetParam = params.get('preset');
 
 const codeEditorDiv = document.getElementById('code-editor')!;
@@ -39,7 +40,8 @@ let repoError = '';
 if (repoParam) {
   codeEditorDiv.textContent = 'Loading project from GitHub...';
   try {
-    currentProject = await loadProjectFromRepo(repoParam);
+    console.log(branchParam);
+    currentProject = await loadProjectFromRepo(repoParam, branchParam);
   } catch (e) {
     console.error('Failed to load project from URL:', e);
     repoError = e instanceof Error ? e.message : String(e);

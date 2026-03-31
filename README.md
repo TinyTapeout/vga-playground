@@ -32,3 +32,7 @@ Available presets: `stripes`, `music`, `rings`, `logo`, `conway`, `checkers`, `d
     https://vga-playground.com/?repo=https://github.com/urish/tt-rings
 
 This fetches `info.yaml` from the repository to discover source files, then loads them into the editor. The repository must follow the [Tiny Tapeout](https://tinytapeout.com/) project structure.
+
+Optionally, you can load a specific branch. If this is not specified, or that branch is not found, defaults to `main` then `master`.
+
+    https://vga-playground.com/?repo=https://github.com/urish/tt-rings&branch=ttihp0p4
