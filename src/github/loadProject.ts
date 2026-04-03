@@ -101,27 +101,38 @@ async function tryFetchFiles(
   return entries.filter((e): e is [string, string] => e != null);
 }
 
-export async function loadProjectFromRepo(repoUrl: string): Promise<Project> {
+export async function loadProjectFromRepo(repoUrl: string, ref?: string | null): Promise<Project> {
   const { owner, repo } = parseRepoUrl(repoUrl);
 
   // Start loading YAML parser in parallel with the fetch
   const yamlModulePromise = import('yaml');
 
-  // Try main branch first, fall back to master
   let infoYaml: string | null = null;
-  let branch = 'main';
-  for (const b of ['main', 'master']) {
-    const url = githubRawUrl(owner, repo, b, 'info.yaml');
-    const res = await fetch(url);
-    if (res.ok) {
-      infoYaml = await res.text();
-      branch = b;
-      break;
-    }
-  }
+  let branch: string;
 
-  if (infoYaml == null) {
-    throw new Error(`Could not fetch info.yaml from ${owner}/${repo}`);
+  if (ref) {
+    branch = ref;
+    const url = githubRawUrl(owner, repo, branch, 'info.yaml');
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Could not fetch info.yaml from ${owner}/${repo} at ref "${ref}"`);
+    }
+    infoYaml = await res.text();
+  } else {
+    // Auto-detect: try main, fall back to master
+    branch = 'main';
+    for (const b of ['main', 'master']) {
+      const url = githubRawUrl(owner, repo, b, 'info.yaml');
+      const res = await fetch(url);
+      if (res.ok) {
+        infoYaml = await res.text();
+        branch = b;
+        break;
+      }
+    }
+    if (infoYaml == null) {
+      throw new Error(`Could not fetch info.yaml from ${owner}/${repo}`);
+    }
   }
 
   const { parse } = await yamlModulePromise;
