@@ -165,12 +165,16 @@ const inputController = new InputController({
   onReset: reset,
 });
 
+const audioLatencyContainer = document.getElementById('audio-latency-display')!;
 audioEngine = new AudioEngine(
   sampleRate,
   vgaClockRate,
   getAudioSignal,
   () => fpsCounter.getFPS(),
-  () => inputController.updateAudioButton(),
+  () => {
+    inputController.updateAudioButton();
+    audioLatencyContainer.style.display = audioEngine.isRunning() ? '' : 'none';
+  },
 );
 
 editor.onDidChangeModelContent(async () => {
