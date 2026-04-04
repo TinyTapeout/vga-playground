@@ -1,10 +1,132 @@
+/* Input values panel */
 #input-values {
-  padding: 8px 8px;
-  color: #ccc;
-  background: #333;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #1e1e1e;
+  border-top: 1px solid #2a2a2a;
 }
 
+.input-label {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  color: #666;
+  margin-right: 2px;
+  user-select: none;
+}
+
+.input-bits {
+  display: flex;
+  gap: 2px;
+}
+
+.input-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Cross-browser button reset */
+#input-values button,
+#gamepad-pmod-inputs button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid transparent;
+  outline: none;
+  margin: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+/* Shared active state */
 #input-values button.active,
 #gamepad-pmod-inputs button.active {
-  background: #0f0;
+  background: #1a4a1a;
+  color: #5fe05f;
+  border-color: #2d6a2d;
+}
+
+#input-values button.active:hover:not(:disabled),
+#gamepad-pmod-inputs button.active:hover {
+  background: #1f5a1f;
+}
+
+/* Bit toggle buttons */
+.input-bits button {
+  width: 28px;
+  height: 26px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  font-weight: 500;
+  color: #888;
+  background: #2a2a2a;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-bits button:hover:not(:disabled):not(.active) {
+  background: #383838;
+  color: #bbb;
+}
+
+.input-bits button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Icon action buttons */
+.input-actions button {
+  width: 30px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 4px;
+  color: #777;
+}
+
+.input-actions button:hover:not(.active) {
+  background: #333;
+  color: #ccc;
+}
+
+.input-actions button svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Gamepad panel */
+#gamepad-pmod-inputs {
+  padding: 6px 10px;
+  background: #1e1e1e;
+  border-top: 1px solid #2a2a2a;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+#gamepad-pmod-inputs button {
+  height: 30px;
+  min-width: 36px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  background: #2a2a2a;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gamepad-pmod-inputs button:hover:not(.active) {
+  background: #383838;
+  color: #bbb;
 }

@@ -63,31 +63,63 @@
           <span id="fps-display">FPS: <span id="fps-count">00</span></span>
         </div>
         <div id="input-values">
-          ui_in:
-          <button>0</button>
-          <button>1</button>
-          <button>2</button>
-          <button>3</button>
-          <button>4</button>
-          <button>5</button>
-          <button>6</button>
-          <button>7</button>
-          <button data-role="audio">Audio</button>
-          <button data-role="gamepad">Gamepad</button>
+          <span class="input-label">ui_in</span>
+          <div class="input-bits">
+            <button title="Bit 0">0</button>
+            <button title="Bit 1">1</button>
+            <button title="Bit 2">2</button>
+            <button title="Bit 3">3</button>
+            <button title="Bit 4">4</button>
+            <button title="Bit 5">5</button>
+            <button title="Bit 6">6</button>
+            <button title="Bit 7">7</button>
+          </div>
+          <div class="input-actions">
+            <button data-role="audio" title="Toggle Audio">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </button>
+            <button data-role="gamepad" title="Toggle Gamepad Mode">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="6" y1="11" x2="10" y2="11"/>
+                <line x1="8" y1="9" x2="8" y2="13"/>
+                <line x1="15" y1="12" x2="15.01" y2="12"/>
+                <line x1="18" y1="10" x2="18.01" y2="10"/>
+                <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>
+              </svg>
+            </button>
+            <button data-role="reset" title="Reset (R)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div id="gamepad-pmod-inputs" style="display: none">
-          <button data-index="6">⬅️</button>
-          <button data-index="7">➡️</button>
-          <button data-index="4">⬆️</button>
-          <button data-index="5">⬇️</button>
-          <button data-index="8">🅰️</button>
-          <button data-index="0">🅱️</button>
-          <button data-index="9">X</button>
-          <button data-index="1">Y</button>
-          <button data-index="2">Select</button>
-          <button data-index="3">Start</button>
-          <button data-index="10">L</button>
-          <button data-index="11">R</button>
+          <button data-index="6" title="Left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button data-index="7" title="Right">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <button data-index="4" title="Up">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 15l-7-7-7 7"/></svg>
+          </button>
+          <button data-index="5" title="Down">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5 9l7 7 7-7"/></svg>
+          </button>
+          <button data-index="8" title="A button">A</button>
+          <button data-index="0" title="B button">B</button>
+          <button data-index="9" title="X button">X</button>
+          <button data-index="1" title="Y button">Y</button>
+          <button data-index="2" title="Select">Sel</button>
+          <button data-index="3" title="Start">Start</button>
+          <button data-index="10" title="Left bumper">L</button>
+          <button data-index="11" title="Right bumper">R</button>
         </div>
         <div class="canvas-wrapper">
           <canvas width="736" height="520" id="vga-canvas"></canvas>

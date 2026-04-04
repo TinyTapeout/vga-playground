@@ -111,4 +111,8 @@ main {
   #input-values {
     flex-wrap: wrap;
   }
+
+  .input-actions {
+    margin-left: 0;
+  }
 }

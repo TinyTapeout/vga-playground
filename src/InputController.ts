@@ -31,6 +31,7 @@ export class InputController {
   private readonly inputButtons: HTMLButtonElement[];
   private readonly audioButtonIndex: number;
   private readonly gamepadButtonIndex: number;
+  private readonly resetButtonIndex: number;
   private readonly gamepadPmodButtons: HTMLButtonElement[];
   private readonly gamepadPmodButtonsMap: Map<number, HTMLButtonElement>;
   private readonly gamepadPmodDiv: HTMLElement;
@@ -52,6 +53,7 @@ export class InputController {
     this.inputButtons = opts.inputButtons;
     this.audioButtonIndex = opts.inputButtons.findIndex((e) => e.dataset.role === 'audio');
     this.gamepadButtonIndex = opts.inputButtons.findIndex((e) => e.dataset.role === 'gamepad');
+    this.resetButtonIndex = opts.inputButtons.findIndex((e) => e.dataset.role === 'reset');
     this.gamepadPmodButtons = opts.gamepadPmodButtons;
     this.gamepadPmodButtonsMap = new Map(
       opts.gamepadPmodButtons.map((b) => [parseInt(b.dataset.index!, 10), b]),
@@ -117,6 +119,10 @@ export class InputController {
       else this.resumeAudio();
       return;
     }
+    if (index === this.resetButtonIndex) {
+      this.onReset();
+      return;
+    }
     if (index === this.gamepadButtonIndex) {
       this.enableGamepadPmod = !this.enableGamepadPmod;
       if (this.enableGamepadPmod) {
@@ -127,7 +133,7 @@ export class InputController {
       for (const pin of gamepadPmodInputPins) {
         this.inputButtons[pin].disabled = this.enableGamepadPmod;
       }
-      this.gamepadPmodDiv.style.display = this.enableGamepadPmod ? 'block' : 'none';
+      this.gamepadPmodDiv.style.display = this.enableGamepadPmod ? 'flex' : 'none';
       return;
     }
     const bit = 1 << index;
