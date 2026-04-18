@@ -154,10 +154,10 @@ describe('HDLModuleWASM', () => {
       await mod.init();
 
       mod.powercycle();
-      // 64-bit values return as Uint32Array
+      // 33..64-bit values return as BigInt, matching the wide-value convention.
       const val = mod.state.counter;
-      expect(val).toBeInstanceOf(Uint32Array);
-      expect(val.length).toBe(2);
+      expect(typeof val).toBe('bigint');
+      expect(val).toBe(0n);
 
       mod.dispose();
     });

@@ -539,7 +539,6 @@ export class VerilogXMLParser implements HDLUnit {
     const unop = this.__visit_unop(node) as HDLExtendop;
     unop.width = parseInt(node.attrs['width']);
     unop.widthminv = parseInt(node.attrs['widthminv']);
-    if (unop.width != 32) throw new CompileError(this.cur_loc, `extends width ${unop.width} != 32`);
     return unop;
   }
 

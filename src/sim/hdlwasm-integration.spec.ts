@@ -526,6 +526,201 @@ describe('Full Verilog -> WASM Pipeline', () => {
     });
   });
 
+  describe('Wide extends (>64-bit targets)', () => {
+    test('should sign-extend 32-bit signed operands into a 96-bit sum', async () => {
+      // a + b with both signed [31:0] and result signed [95:0] makes Verilator
+      // emit `extends` ops widening each operand to 96 bits before the add.
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_signed_add(
+          input wire signed [31:0] a,
+          input wire signed [31:0] b,
+          output wire signed [95:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_signed_add', { 'wide_signed_add.v': verilog });
+      mod.powercycle();
+
+      const mask96 = (1n << 96n) - 1n;
+      const toU32 = (n: number) => (n >>> 0) & 0xffffffff;
+
+      mod.state.a = toU32(-1);
+      mod.state.b = 2;
+      mod.eval();
+      expect(mod.state.result).toBe(1n);
+
+      mod.state.a = toU32(-1000);
+      mod.state.b = toU32(-2000);
+      mod.eval();
+      expect(mod.state.result).toBe(-3000n & mask96);
+
+      // Most-negative i32 values: their sum is outside i32 range, so the sign
+      // fill must cover the upper two chunks (bits 32..95).
+      mod.state.a = toU32(-0x80000000);
+      mod.state.b = toU32(-0x80000000);
+      mod.eval();
+      expect(mod.state.result).toBe(-0x100000000n & mask96);
+
+      mod.dispose();
+    });
+
+    test('should zero-extend unsigned 32-bit operands into a 96-bit sum', async () => {
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_unsigned_add(
+          input wire [31:0] a,
+          input wire [31:0] b,
+          output wire [95:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_unsigned_add', { 'wide_unsigned_add.v': verilog });
+      mod.powercycle();
+
+      // 0xFFFFFFFF + 0xFFFFFFFF = 0x1_FFFFFFFE: overflows an i32 but must
+      // carry cleanly across the 32-bit boundary of the zero-extended operands.
+      mod.state.a = 0xffffffff;
+      mod.state.b = 0xffffffff;
+      mod.eval();
+      expect(mod.state.result).toBe(0x1fffffffen);
+
+      mod.dispose();
+    });
+
+    test('should sign-extend a non-chunk-aligned 44-bit source into 128 bits', async () => {
+      // 44 % 32 != 0, so the transition chunk (chunk 1) must be sign-extended
+      // from bit 11 into bits 12..31 of that chunk before the upper chunks are
+      // filled. This is the pattern from fixed-point multiplier outputs.
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_signed_add_44(
+          input wire signed [43:0] a,
+          input wire signed [43:0] b,
+          output wire signed [127:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_signed_add_44', {
+        'wide_signed_add_44.v': verilog,
+      });
+      mod.powercycle();
+
+      const mask44 = (1n << 44n) - 1n;
+      const mask128 = (1n << 128n) - 1n;
+
+      // Most-negative 44-bit: requires sign-extending bit 43 through bit 127.
+      const mostNeg44 = -(1n << 43n);
+      mod.state.a = mostNeg44 & mask44;
+      mod.state.b = mostNeg44 & mask44;
+      mod.eval();
+      expect(mod.state.result).toBe((2n * mostNeg44) & mask128);
+
+      mod.dispose();
+    });
+
+    test('should zero-extend a non-chunk-aligned 44-bit source into 128 bits', async () => {
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_unsigned_add_44(
+          input wire [43:0] a,
+          input wire [43:0] b,
+          output wire [127:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_unsigned_add_44', {
+        'wide_unsigned_add_44.v': verilog,
+      });
+      mod.powercycle();
+
+      const mask44 = (1n << 44n) - 1n;
+
+      // If bits 44..63 weren't masked off the transition chunk (bit 43 could be
+      // set and bleed into them) the 128-bit sum would corrupt the upper chunks.
+      mod.state.a = mask44;
+      mod.state.b = mask44;
+      mod.eval();
+      expect(mod.state.result).toBe((1n << 45n) - 2n);
+
+      mod.dispose();
+    });
+
+    test('should extend a 64-bit signed source into a 128-bit sum', async () => {
+      // Source width is exactly 64 (i64 evaluation path).
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_signed_add_64(
+          input wire signed [63:0] a,
+          input wire signed [63:0] b,
+          output wire signed [127:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_signed_add_64', {
+        'wide_signed_add_64.v': verilog,
+      });
+      mod.powercycle();
+
+      const mask64 = (1n << 64n) - 1n;
+      const mask128 = (1n << 128n) - 1n;
+
+      mod.state.a = -1n & mask64;
+      mod.state.b = -1n & mask64;
+      mod.eval();
+      expect(mod.state.result).toBe(-2n & mask128);
+
+      mod.dispose();
+    });
+
+    test('should extend a 96-bit signed source into a 160-bit sum', async () => {
+      // Both source and destination are wide, and the source width is chunk-
+      // aligned (96 % 32 == 0): no partial transition chunk, only copy + fill.
+      const verilog = `
+        /* verilator lint_off WIDTH */
+        module wide_wider_signed_add(
+          input wire signed [95:0] a,
+          input wire signed [95:0] b,
+          output wire signed [159:0] result
+        );
+          assign result = a + b;
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('wide_wider_signed_add', {
+        'wide_wider_signed_add.v': verilog,
+      });
+      mod.powercycle();
+
+      const mask96 = (1n << 96n) - 1n;
+      const mask160 = (1n << 160n) - 1n;
+
+      // -1 (96 bits) + 1 = 0: the sign fill must zero out all upper chunks
+      // since the final result is non-negative.
+      mod.state.a = -1n & mask96;
+      mod.state.b = 1n;
+      mod.eval();
+      expect(mod.state.result).toBe(0n);
+
+      mod.state.a = -2n & mask96;
+      mod.state.b = -3n & mask96;
+      mod.eval();
+      expect(mod.state.result).toBe(-5n & mask160);
+
+      mod.dispose();
+    });
+  });
+
   describe('Signed comparisons', () => {
     test('should sign-extend narrower-than-container signed values before comparing', async () => {
       // Reproduces issue #15: $signed(28-bit value) > 28'sh4000

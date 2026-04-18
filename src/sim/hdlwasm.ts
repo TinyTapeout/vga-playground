@@ -142,6 +142,15 @@ function getNumChunks(dt: HDLDataType): number {
   throw new HDLError(dt, `cannot get chunk count for non-logic type`);
 }
 
+/**
+ * Bit mask with the low `bits` bits set, as a signed i32 literal suitable for
+ * `binaryen.i32.const`. `bits` must be in 1..31 (for 0 no mask is needed and
+ * for 32 the full chunk passes through unchanged).
+ */
+function maskLowBits(bits: number): number {
+  return (-1 >>> (32 - bits)) | 0;
+}
+
 interface StructRec {
   name: string;
   type: HDLDataType | undefined;
@@ -552,11 +561,12 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (eltype && isLogicType(eltype) && eltype.left < 31) {
       mask = (1 << (eltype.left + 1)) - 1; // set partial bits
     }
-    // Check if this is a wide type (> 64 bits) for BigInt handling
-    var isWide = vref.type && isLogicType(vref.type) && vref.type.left > 63;
-    var numChunks = isWide ? Math.ceil(((vref.type as HDLLogicType).left + 1) / 32) : 0;
-    // Compute BigInt mask for wide types
-    var bigMask = isWide ? (1n << BigInt((vref.type as HDLLogicType).left + 1)) - 1n : 0n;
+    // Any logic type with more than 32 bits is exposed as a BigInt and stored
+    // as 32-bit chunks in memory (whether it fits in a native i64 or is truly
+    // wide). Precompute the chunk count and mask once so get/set stay tight.
+    var useBigInt = vref.type && isLogicType(vref.type) && vref.type.left > 31;
+    var numChunks = useBigInt ? Math.ceil(((vref.type as HDLLogicType).left + 1) / 32) : 0;
+    var bigMask = useBigInt ? (1n << BigInt((vref.type as HDLLogicType).left + 1)) - 1n : 0n;
     // define get/set on proxy object
     Object.defineProperty(proxy, vref.name, {
       get() {
@@ -577,8 +587,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
             return _this.data16[(base + vref.offset) >> 1];
           } else if (vref.size == 4) {
             return _this.data32[(base + vref.offset) >> 2];
-          } else if (isWide) {
-            // Wide type: read 32-bit chunks and combine into BigInt
+          } else if (useBigInt) {
             let result = 0n;
             const startIdx = (base + vref.offset) >> 2;
             for (let i = 0; i < numChunks; i++) {
@@ -600,8 +609,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
         } else if (vref.size == 4) {
           _this.data32[(base + vref.offset) >> 2] = value & mask;
           return true;
-        } else if (isWide) {
-          // Wide type: break BigInt into 32-bit chunks and store
+        } else if (useBigInt) {
           let bigValue = BigInt(value) & bigMask;
           const startIdx = (base + vref.offset) >> 2;
           for (let i = 0; i < numChunks; i++) {
@@ -1204,6 +1212,9 @@ export class HDLModuleWASM implements HDLModuleRunner {
     const carryLocal = this.locals.addEntry('$$carry', 4, binaryen.i32);
     const sumLocal = this.locals.addEntry('$$sum', 4, binaryen.i32);
     const leftLocal = this.locals.addEntry('$$left', 4, binaryen.i32);
+    // Snapshot of the step-1 overflow (left+right wrapped); captured as a
+    // local before sumLocal is overwritten with sum+carry.
+    const overflow1Local = this.locals.addEntry('$$over1', 4, binaryen.i32);
 
     const stmts: number[] = [];
 
@@ -1227,10 +1238,19 @@ export class HDLModuleWASM implements HDLModuleRunner {
         ),
       );
 
-      // Check for overflow: if sum < left, there was overflow
-      const overflow1 = this.bmod.i32.lt_u(
-        this.bmod.local.get(sumLocal.index, binaryen.i32),
-        this.bmod.local.get(leftLocal.index, binaryen.i32),
+      // Snapshot overflow1 (sum<left detected the left+right wrap) now, before
+      // sumLocal is overwritten with sum+carry. Otherwise the comparison is
+      // re-evaluated against the post-carry value and misses the case where
+      // left+right wrapped but sum+carry lands exactly at `left` (e.g.
+      // left=0xFFFFFFFF, right=0xFFFFFFFF, carry=1 produces final sum=left).
+      stmts.push(
+        this.bmod.local.set(
+          overflow1Local.index,
+          this.bmod.i32.lt_u(
+            this.bmod.local.get(sumLocal.index, binaryen.i32),
+            this.bmod.local.get(leftLocal.index, binaryen.i32),
+          ),
+        ),
       );
 
       // Add carry to sum
@@ -1245,13 +1265,10 @@ export class HDLModuleWASM implements HDLModuleRunner {
         this.bmod.i32.store(offset, 4, destAddr, this.bmod.local.get(sumLocal.index, binaryen.i32)),
       );
 
-      // Update carry for next iteration
-      // carry = overflow1 || (sumPlusCarry < carry_was)
-      // Simplified: carry = overflow1 | (sum == 0 && old_carry)
-      // Actually: new_carry = overflow1 | (sumPlusCarry == 0 && carry)
+      // Update carry for next iteration.
+      // new_carry = overflow1 | (sum+carry wrapped to 0)
+      //           = overflow1 | (final_sum == 0 && carry == 1)
       if (i < numChunks - 1) {
-        // carry = overflow1 | (sum+carry overflowed)
-        // sum+carry overflows if sum was 0xFFFFFFFF and carry was 1
         const overflow2 = this.bmod.i32.and(
           this.bmod.i32.eq(
             this.bmod.local.get(sumLocal.index, binaryen.i32),
@@ -1259,7 +1276,12 @@ export class HDLModuleWASM implements HDLModuleRunner {
           ),
           this.bmod.local.get(carryLocal.index, binaryen.i32),
         );
-        stmts.push(this.bmod.local.set(carryLocal.index, this.bmod.i32.or(overflow1, overflow2)));
+        stmts.push(
+          this.bmod.local.set(
+            carryLocal.index,
+            this.bmod.i32.or(this.bmod.local.get(overflow1Local.index, binaryen.i32), overflow2),
+          ),
+        );
       }
     }
 
@@ -1871,7 +1893,106 @@ export class HDLModuleWASM implements HDLModuleRunner {
       return this.wideNegate(e, destAddr, numChunks);
     }
 
+    if (op === 'extend') {
+      return this.wideExtend(e as HDLExtendop, destAddr, numChunks, false);
+    }
+
+    if (op === 'extends') {
+      return this.wideExtend(e as HDLExtendop, destAddr, numChunks, true);
+    }
+
     throw new HDLError(e, `unsupported wide unary operation: ${op}`);
+  }
+
+  /**
+   * Generate code for a wide extend / extends: writes a `numChunks`-chunk
+   * destination from a source of width `e.widthminv`. Source chunks are copied
+   * or evaluated into the low chunks; the transition chunk (when the source
+   * width is not a multiple of 32) is masked for zero-extend or sign-extended
+   * for extends; chunks beyond the source are filled with 0 or replicated sign.
+   */
+  wideExtend(e: HDLExtendop, destAddr: number, numChunks: number, signed: boolean): number {
+    const srcWidth = e.widthminv;
+    const srcNumChunks = Math.ceil(srcWidth / 32);
+    const partialBits = srcWidth % 32;
+    const stmts: number[] = [];
+
+    if (srcWidth > 64) {
+      const srcAddr = this.address2wasm(e.left);
+      const fullSrcChunks = partialBits === 0 ? srcNumChunks : srcNumChunks - 1;
+      for (let i = 0; i < fullSrcChunks; i++) {
+        stmts.push(this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.load(i * 4, 4, srcAddr)));
+      }
+      if (partialBits !== 0) {
+        const transIdx = srcNumChunks - 1;
+        const raw = this.bmod.i32.load(transIdx * 4, 4, srcAddr);
+        stmts.push(
+          this.bmod.i32.store(
+            transIdx * 4,
+            4,
+            destAddr,
+            this.maskTransitionChunk(raw, partialBits, signed),
+          ),
+        );
+      }
+    } else if (srcWidth <= 32) {
+      const value = this.e2w(e.left);
+      stmts.push(
+        this.bmod.i32.store(0, 4, destAddr, this.maskTransitionChunk(value, partialBits, signed)),
+      );
+    } else {
+      // 33..64-bit source: i64 split into two 32-bit chunks.
+      const value = this.e2w(e.left);
+      stmts.push(this.bmod.i32.store(0, 4, destAddr, this.bmod.i32.wrap(value)));
+      const hiRaw = this.bmod.i32.wrap(this.bmod.i64.shr_u(value, this.bmod.i64.const(32, 0)));
+      stmts.push(
+        this.bmod.i32.store(4, 4, destAddr, this.maskTransitionChunk(hiRaw, partialBits, signed)),
+      );
+    }
+
+    // Fill chunks above the source: replicate the sign bit of the top source
+    // chunk (which we just wrote) for extends, or zero for extend.
+    if (signed && numChunks > srcNumChunks) {
+      const fillLocal = this.locals.addEntry('$$extfill', 4, binaryen.i32);
+      const lastWrittenChunk = this.bmod.i32.load((srcNumChunks - 1) * 4, 4, destAddr);
+      stmts.push(
+        this.bmod.local.set(
+          fillLocal.index,
+          this.bmod.i32.shr_s(lastWrittenChunk, this.bmod.i32.const(31)),
+        ),
+      );
+      for (let i = srcNumChunks; i < numChunks; i++) {
+        stmts.push(
+          this.bmod.i32.store(
+            i * 4,
+            4,
+            destAddr,
+            this.bmod.local.get(fillLocal.index, binaryen.i32),
+          ),
+        );
+      }
+    } else {
+      for (let i = srcNumChunks; i < numChunks; i++) {
+        stmts.push(this.bmod.i32.store(i * 4, 4, destAddr, this.bmod.i32.const(0)));
+      }
+    }
+
+    return this.bmod.block(null, stmts);
+  }
+
+  /**
+   * Narrow the i32 `raw` chunk to its declared `partialBits` low bits for a
+   * wide extend, either zero-filling (mask) or sign-filling (arithmetic
+   * shift-pair) the unused high bits. A `partialBits` of 0 means the chunk is
+   * already full-width and passes through unchanged.
+   */
+  private maskTransitionChunk(raw: number, partialBits: number, signed: boolean): number {
+    if (partialBits === 0) return raw;
+    if (signed) {
+      const shift = this.bmod.i32.const(32 - partialBits);
+      return this.bmod.i32.shr_s(this.bmod.i32.shl(raw, shift), shift);
+    }
+    return this.bmod.i32.and(raw, this.bmod.i32.const(maskLowBits(partialBits)));
   }
 
   /**
@@ -2067,13 +2188,26 @@ export class HDLModuleWASM implements HDLModuleRunner {
   }
 
   _if2wasm(e: HDLTriop, opts: Options) {
-    return this.bmod.if(this.e2w(e.cond), this.e2w(e.left), this.e2w(e.right));
+    return this.bmod.if(this.condAsI32(e.cond), this.e2w(e.left), this.e2w(e.right));
   }
   _cond2wasm(e: HDLTriop, opts: Options) {
-    return this.bmod.select(this.e2w(e.cond), this.e2w(e.left), this.e2w(e.right));
+    return this.bmod.select(this.condAsI32(e.cond), this.e2w(e.left), this.e2w(e.right));
   }
   _condbound2wasm(e: HDLTriop, opts: Options) {
-    return this.bmod.select(this.e2w(e.cond), this.e2w(e.left), this.e2w(e.right));
+    return this.bmod.select(this.condAsI32(e.cond), this.e2w(e.left), this.e2w(e.right));
+  }
+
+  /**
+   * Evaluate an HDL condition and return an i32 suitable for `if` / `select`.
+   * If the expression's underlying type is i64, coerce to i32 via `!= 0` so
+   * that values whose only set bits are above bit 31 remain truthy.
+   */
+  private condAsI32(cond: HDLExpr): number {
+    const val = this.e2w(cond);
+    if (hasDataType(cond) && isLogicType(cond.dtype) && getDataTypeSize(cond.dtype) === 8) {
+      return this.bmod.i64.ne(val, this.bmod.i64.const(0, 0));
+    }
+    return val;
   }
 
   _while2wasm(e: HDLWhileOp, opts: Options) {
