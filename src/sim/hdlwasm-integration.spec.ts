@@ -721,6 +721,34 @@ describe('Full Verilog -> WASM Pipeline', () => {
     });
   });
 
+  describe('$readmemh into small array', () => {
+    test('should pass small (<=8 byte) array as address, not load it as a value', async () => {
+      // Regression: rom array totaling <=8 bytes was being passed by value (i64.load)
+      // to $readmem instead of by address (i32 pointer), breaking wasm validation with
+      // "call param types must match" on argument 2 of $readmem_2.
+      const verilog = `
+        module readmem_small(
+          input wire [2:0] idx,
+          output wire [3:0] val
+        );
+          reg [3:0] pal[0:7];
+          initial begin
+            $readmemh("../data/pal.hex", pal);
+          end
+          assign val = pal[idx];
+        endmodule
+      `;
+
+      const mod = await compileAndCreate('readmem_small', { 'readmem_small.v': verilog });
+      mod.getFileData = () => '0\n1\n2\n3\n4\n5\n6\n7\n';
+      mod.powercycle();
+      mod.state.idx = 5;
+      mod.eval();
+      expect(mod.state.val).toBe(5);
+      mod.dispose();
+    });
+  });
+
   describe('Signed comparisons', () => {
     test('should sign-extend narrower-than-container signed values before comparing', async () => {
       // Reproduces issue #15: $signed(28-bit value) > 28'sh4000

@@ -75,7 +75,7 @@ function getDataTypeSize(dt: HDLDataType): number {
 }
 
 function isReferenceType(dt: HDLDataType): boolean {
-  return getDataTypeSize(dt) > 8;
+  return isArrayType(dt) || getDataTypeSize(dt) > 8;
 }
 
 function getArrayElementSizeFromType(dtype: HDLDataType): number {
@@ -1020,8 +1020,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (local != null) {
       return this.bmod.local.get(local.index, local.itype!);
     } else if (global != null) {
-      if (global.size > 8 && opts && opts.funcarg)
-        return this.address2wasm(e); // TODO: only applies to wordsel
+      if (opts && opts.funcarg && isReferenceType(e.dtype)) return this.address2wasm(e);
       else return this.loadmem(e, this.dataptr(), global.offset, global.size);
     }
     throw new HDLError(e, `cannot lookup variable ${e.refname}`);
