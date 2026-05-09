@@ -244,6 +244,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
   state: any;
   statebytes!: number;
   outputbytes!: number;
+  tempsStart!: number;
 
   traceBufferSize: number = 0xff000;
   traceRecordSize!: number;
@@ -264,6 +265,7 @@ export class HDLModuleWASM implements HDLModuleRunner {
     this.constpool = constpool;
     this.maxMemoryMB = maxMemoryMB || 16;
     this.genMemory();
+    this.tempsStart = this.globals.len;
     this.genFuncs();
     this.validate();
   }
@@ -677,6 +679,9 @@ export class HDLModuleWASM implements HDLModuleRunner {
 
   clearMutableState() {
     this.data32.fill(0, 0, this.statebytes >> 2);
+    // promoted function locals (e.g. $readmem filename buffers) live past the
+    // trace buffer; clear them so they don't carry stale data across powercycles
+    this.data32.fill(0, this.tempsStart >> 2, this.globals.len >> 2);
   }
 
   private addHelperFunctions() {

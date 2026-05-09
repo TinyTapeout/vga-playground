@@ -747,6 +747,42 @@ describe('Full Verilog -> WASM Pipeline', () => {
       expect(mod.state.val).toBe(5);
       mod.dispose();
     });
+
+    test('should re-clear $readmem filename buffers across powercycles', async () => {
+      // Regression: $readmem filename buffers are promoted to globals past the
+      // trace buffer where clearMutableState wasn't reaching. Filenames whose
+      // length is a multiple of 8 lack a null terminator, so on the second
+      // powercycle the read flowed into a sibling temp's stale bytes.
+      const verilog = `
+        module readmem_repeat(
+          input wire idx,
+          output wire [3:0] val
+        );
+          reg [3:0] a[0:0];
+          reg [3:0] b[0:0];
+          initial begin
+            $readmemh("../data/aaaa.hex", a);
+            $readmemh("../data/bbbb.hex", b);
+          end
+          assign val = idx ? b[0] : a[0];
+        endmodule
+      `;
+      const mod = await compileAndCreate('readmem_repeat', { 'readmem_repeat.v': verilog });
+      const requested: string[] = [];
+      mod.getFileData = (fn: string) => {
+        requested.push(fn);
+        return '5\n';
+      };
+      mod.powercycle();
+      mod.powercycle();
+      expect(requested).toEqual([
+        '../data/aaaa.hex',
+        '../data/bbbb.hex',
+        '../data/aaaa.hex',
+        '../data/bbbb.hex',
+      ]);
+      mod.dispose();
+    });
   });
 
   describe('Signed comparisons', () => {
