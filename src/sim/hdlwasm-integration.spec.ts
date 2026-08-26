@@ -783,6 +783,77 @@ describe('Full Verilog -> WASM Pipeline', () => {
       ]);
       mod.dispose();
     });
+
+    test('should load values separated by spaces rather than newlines', async () => {
+      // Regression: the file was split on newlines only, so a memory laid out
+      // as a grid (or on a single line) loaded just the first value of each row.
+      const verilog = `
+        module readmem_grid(
+          input wire [2:0] idx,
+          output wire [3:0] val
+        );
+          reg [3:0] pal[0:7];
+          initial begin
+            $readmemh("../data/pal.hex", pal);
+          end
+          assign val = pal[idx];
+        endmodule
+      `;
+      const mod = await compileAndCreate('readmem_grid', { 'readmem_grid.v': verilog });
+      mod.getFileData = () => '0 1 2 3\n4 5 6 7\n';
+      mod.powercycle();
+      for (let i = 0; i < 8; i++) {
+        mod.state.idx = i;
+        mod.eval();
+        expect(mod.state.val).toBe(i);
+      }
+      mod.dispose();
+    });
+
+    test('should load a memory wider than one byte', async () => {
+      // Regression: values were written one byte apart regardless of the
+      // element size, so a 16-bit memory got truncated and misaligned data.
+      const verilog = `
+        module readmem_wide(
+          input wire [1:0] idx,
+          output wire [15:0] val
+        );
+          reg [15:0] rom[0:3];
+          initial begin
+            $readmemh("../data/rom.hex", rom);
+          end
+          assign val = rom[idx];
+        endmodule
+      `;
+      const mod = await compileAndCreate('readmem_wide', { 'readmem_wide.v': verilog });
+      mod.getFileData = () => '1234 5678 9abc def0';
+      mod.powercycle();
+      for (const [i, expected] of [0x1234, 0x5678, 0x9abc, 0xdef0].entries()) {
+        mod.state.idx = i;
+        mod.eval();
+        expect(mod.state.val).toBe(expected);
+      }
+      mod.dispose();
+    });
+
+    test('should reject a file with more values than the destination holds', async () => {
+      const verilog = `
+        module readmem_overflow(
+          input wire [1:0] idx,
+          output wire [3:0] val
+        );
+          reg [3:0] mem[0:3];
+          initial begin
+            $readmemh("../data/mem.hex", mem);
+          end
+          assign val = mem[idx];
+        endmodule
+      `;
+      const mod = await compileAndCreate('readmem_overflow', { 'readmem_overflow.v': verilog });
+      mod.getFileData = () => '1 2 3 4 5';
+      expect(() => mod.powercycle()).toThrow(/too much data/);
+      mod.dispose();
+    });
   });
 
   describe('Signed comparisons', () => {

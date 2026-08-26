@@ -32,6 +32,7 @@ import {
   isVarRef,
   isWhileop,
 } from './hdltypes';
+import { parseMemFile } from './readmem';
 
 const VERILATOR_UNIT_FUNCTIONS = [
   '_ctor_var_reset',
@@ -56,6 +57,7 @@ const TRACERECLEN = '$$treclen';
 const TRACEOFS = '$$tofs';
 const TRACEEND = '$$tend';
 const TRACEBUF = '$$tbuf';
+const READMEM_FUNC = '$readmem_4';
 
 ///
 
@@ -720,10 +722,16 @@ export class HDLModuleWASM implements HDLModuleRunner {
       binaryen.i32,
     );
     this.bmod.addFunctionImport(
-      '$readmem_2',
+      READMEM_FUNC,
       'builtins',
       '$readmem',
-      binaryen.createType([binaryen.i32, binaryen.i32, binaryen.i32]),
+      binaryen.createType([
+        binaryen.i32, // dataptr
+        binaryen.i32, // filename
+        binaryen.i32, // destination array
+        binaryen.i32, // destination element size, in bytes
+        binaryen.i32, // destination element count
+      ]),
       binaryen.none,
     );
   }
@@ -743,12 +751,13 @@ export class HDLModuleWASM implements HDLModuleRunner {
         },
         $time: (o: number) => BigInt(new Date().getTime() - this.resetStartTimeMsec), // TODO: timescale
         $rand: (o: number) => (Math.random() * (65536 * 65536)) | 0,
-        $readmem: (o: number, a: number, b: number) => this.$readmem(a, b),
+        $readmem: (o: number, fn: number, rom: number, elemsize: number, nelems: number) =>
+          this.$readmem(fn, rom, elemsize, nelems),
       },
     };
   }
 
-  private $readmem(p_filename: number, p_rom: number) {
+  private $readmem(p_filename: number, p_rom: number, elemsize: number, nelems: number) {
     var fn = '';
     for (var i = 0; i < 255; i++) {
       var charCode = this.data8[p_filename + i];
@@ -760,12 +769,25 @@ export class HDLModuleWASM implements HDLModuleRunner {
     if (typeof filedata !== 'string')
       throw new HDLError(fn, `file "${fn}" must be lines of hex or binary values`);
     var ishex = !fn.endsWith('.binary'); // TODO: hex should be attribute in xml
-    var data = filedata
-      .split('\n')
-      .filter((s) => s !== '')
-      .map((s) => parseInt(s, ishex ? 16 : 2));
-    for (var i = 0; i < data.length; i++) {
-      this.data8[p_rom + i] = data[i];
+    var entries;
+    try {
+      entries = parseMemFile(filedata, ishex);
+    } catch (e) {
+      throw new HDLError(fn, `$readmem of "${fn}": ${(e as Error).message}`);
+    }
+    for (const { addr, value } of entries) {
+      if (addr >= nelems) {
+        throw new HDLError(
+          fn,
+          `$readmem of "${fn}": too much data for destination (${nelems} elements)`,
+        );
+      }
+      // write little-endian, one byte at a time: a single loop handles every
+      // element size
+      var ofs = p_rom + addr * elemsize;
+      for (var b = 0; b < elemsize; b++) {
+        this.data8[ofs + b] = Number((value >> BigInt(b * 8)) & BigInt(0xff));
+      }
     }
     return 0;
   }
@@ -998,6 +1020,17 @@ export class HDLModuleWASM implements HDLModuleRunner {
         args = [this.bmod.i32.const(e.$loc.line)]; // line # of source code
       }
       internal += '_' + (args.length - 1);
+    }
+    if (e.funcname == '$readmem') {
+      // the runtime needs the shape of the destination array to fill it in
+      var dest = e.args[1];
+      if (!hasDataType(dest) || !isArrayType(dest.dtype)) {
+        throw new HDLError(e, `$readmem destination must be an array`);
+      }
+      var elemsize = getArrayElementSizeFromType(dest.dtype);
+      args.push(this.bmod.i32.const(elemsize));
+      args.push(this.bmod.i32.const(getDataTypeSize(dest.dtype) / elemsize));
+      internal = READMEM_FUNC;
     }
     var ret = this.funcResult(e.funcname);
     return this.bmod.call(internal, args, ret);
