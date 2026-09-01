@@ -1,6 +1,6 @@
 @import './ui/controls.css';
 @import './ui/error-overlay.css';
-@import './ui/file-tabs.css';
+@import './ui/file-explorer.css';
 @import './ui/preset-bar.css';
 
 body {
@@ -38,7 +38,7 @@ main {
 
 #editor-panel {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
   min-width: 0;
   width: 50%;
@@ -46,6 +46,7 @@ main {
 
 #code-editor {
   flex: 1;
+  min-width: 0;
   min-height: 200px;
   overflow: hidden;
 }
