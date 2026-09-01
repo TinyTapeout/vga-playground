@@ -1,0 +1,45 @@
+#main-splitter {
+  flex: 0 0 6px;
+  position: relative;
+  z-index: 3;
+  background: #1a1a1a;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+#main-splitter::after {
+  /* Widen the grab area past the visible 6px without shifting the layout. */
+  content: '';
+  position: absolute;
+  inset: 0 -2px;
+}
+
+#main-splitter:hover,
+#main-splitter:focus-visible,
+body.split-resizing-x #main-splitter,
+body.split-resizing-y #main-splitter {
+  background: #de3f89;
+  outline: none;
+}
+
+body.split-resizing-x,
+body.split-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.split-resizing-y,
+body.split-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none;
+}
+
+@media (max-width: 799px) {
+  #main-splitter {
+    cursor: row-resize;
+  }
+
+  #main-splitter::after {
+    inset: -2px 0;
+  }
+}

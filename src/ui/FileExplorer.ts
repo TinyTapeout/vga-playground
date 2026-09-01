@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { IErrorMessage } from '../verilator/ErrorParser';
+import { readStorage, readStoredNumber, writeStorage } from './storage';
 
 type MarkerData = monaco.editor.IMarkerData;
 
@@ -24,23 +25,6 @@ const ICON_NEW_FILE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3
 const ICON_COLLAPSE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4L6 8l4 4"/></svg>`;
 const ICON_EXPAND = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>`;
 const ICON_FILE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 2H4.5a1 1 0 00-1 1v10a1 1 0 001 1h7a1 1 0 001-1V5.3L9.2 2z"/><path d="M9 2.2v3.3h3.4"/></svg>`;
-
-/** Reads a persisted value, tolerating browsers where storage is unavailable. */
-function readStorage(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Ignore: private mode / storage disabled.
-  }
-}
 
 export function isValidFileName(name: string) {
   return VALID_EXTENSIONS.some((ext) => name.endsWith(ext)) && !name.includes('/');
@@ -139,8 +123,7 @@ export class FileExplorer {
     });
     window.addEventListener('scroll', () => this.hideContextMenu(), true);
 
-    const storedWidth = Number(readStorage(WIDTH_KEY));
-    this.width = Number.isFinite(storedWidth) && storedWidth > 0 ? storedWidth : DEFAULT_WIDTH;
+    this.width = readStoredNumber(WIDTH_KEY, DEFAULT_WIDTH);
     this.applyWidth();
 
     const storedCollapsed = readStorage(COLLAPSED_KEY);

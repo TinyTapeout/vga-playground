@@ -20,6 +20,7 @@ import {
 import { initErrorOverlay } from './ui/ErrorOverlay';
 import { FileExplorer } from './ui/FileExplorer';
 import { initPresetBar } from './ui/PresetBar';
+import { SplitPane } from './ui/SplitPane';
 import { compileVerilator } from './verilator/compile';
 import { detectTopModule } from './verilog';
 
@@ -79,6 +80,13 @@ const fileExplorer = new FileExplorer({
 });
 fileExplorer.currentFileName = firstFileName;
 fileExplorer.render();
+
+new SplitPane({
+  container: document.querySelector('main')!,
+  splitter: document.getElementById('main-splitter')!,
+  minFirstSize: 220,
+  minSecondSize: 180,
+});
 
 const errorOverlay = initErrorOverlay(document.getElementById('error-overlay')!);
 
