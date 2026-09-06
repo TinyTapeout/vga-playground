@@ -108,6 +108,11 @@ export class FileExplorer {
     const resizer = document.createElement('div');
     resizer.className = 'explorer-resizer';
     resizer.addEventListener('pointerdown', (e) => this.startResize(e));
+    resizer.addEventListener('dblclick', () => {
+      this.width = DEFAULT_WIDTH;
+      this.applyWidth();
+      writeStorage(WIDTH_KEY, String(DEFAULT_WIDTH));
+    });
     this.container.appendChild(resizer);
 
     this.contextMenu = document.createElement('div');
