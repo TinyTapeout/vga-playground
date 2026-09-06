@@ -102,10 +102,15 @@ main {
   /* Stacked: display on top, then the handle, then the editor. */
   #vga-canvas-container {
     order: -2;
+    flex: 0 0 calc(var(--split-fraction) * 100%);
   }
 
   #main-splitter {
     order: -1;
+  }
+
+  #editor-panel {
+    flex: 1 1 0;
   }
 
   .header-title {
