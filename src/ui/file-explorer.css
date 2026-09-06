@@ -186,8 +186,9 @@
   touch-action: none;
 }
 
-.explorer-resizer:hover {
-  background: #de3f8966;
+.explorer-resizer:hover,
+body.explorer-resizing .explorer-resizer {
+  background: #de3f89;
 }
 
 body.explorer-resizing {
