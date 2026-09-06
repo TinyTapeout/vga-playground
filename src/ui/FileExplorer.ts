@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { IErrorMessage } from '../verilator/ErrorParser';
+import { INVALID_NAME_MESSAGE, VALID_EXTENSIONS, isValidFileName } from './fileName';
 import { STACKED_LAYOUT_QUERY } from './SplitPane';
 import { readStorage, readStoredNumber, writeStorage } from './storage';
 
@@ -13,8 +14,6 @@ export interface FileExplorerOptions {
   setEditorValue: (value: string) => void;
 }
 
-const VALID_EXTENSIONS = ['.v', '.sv', '.vh', '.svh'];
-const INVALID_NAME_MESSAGE = `File name must end with one of: ${VALID_EXTENSIONS.join(', ')}, and must not contain "/" (folders are not supported)`;
 const MIN_WIDTH = 150;
 const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 210;
@@ -27,10 +26,6 @@ const ICON_NEW_FILE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3
 const ICON_COLLAPSE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4L6 8l4 4"/></svg>`;
 const ICON_EXPAND = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>`;
 const ICON_FILE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 2H4.5a1 1 0 00-1 1v10a1 1 0 001 1h7a1 1 0 001-1V5.3L9.2 2z"/><path d="M9 2.2v3.3h3.4"/></svg>`;
-
-export function isValidFileName(name: string) {
-  return VALID_EXTENSIONS.some((ext) => name.endsWith(ext)) && !name.includes('/');
-}
 
 export class FileExplorer {
   currentFileName = 'project.v';
