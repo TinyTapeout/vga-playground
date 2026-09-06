@@ -385,11 +385,8 @@ export class FileExplorer {
   }
 }
 
-/** Keeps the project's entry file on top, then sorts the rest like a file tree. */
 function sortFileNames(names: string[]) {
-  const [first, ...rest] = names;
-  rest.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  return first != null ? [first, ...rest] : [];
+  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
 function toMarker(e: {
