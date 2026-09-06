@@ -13,6 +13,7 @@ export interface FileExplorerOptions {
 }
 
 const VALID_EXTENSIONS = ['.v', '.sv', '.vh', '.svh'];
+const INVALID_NAME_MESSAGE = `File name must end with one of: ${VALID_EXTENSIONS.join(', ')}, and must not contain "/" (folders are not supported)`;
 const MIN_WIDTH = 150;
 const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 210;
@@ -309,7 +310,7 @@ export class FileExplorer {
     const name = prompt(`New file name (${VALID_EXTENSIONS.join(', ')}):`, 'new_module.v');
     if (!name) return;
     if (!isValidFileName(name)) {
-      alert(`File name must end with one of: ${VALID_EXTENSIONS.join(', ')}`);
+      alert(INVALID_NAME_MESSAGE);
       return;
     }
     const sources = this.getSources();
@@ -329,7 +330,7 @@ export class FileExplorer {
     const newName = prompt('Rename file:', fileName);
     if (!newName || newName === fileName) return;
     if (!isValidFileName(newName)) {
-      alert(`File name must end with one of: ${VALID_EXTENSIONS.join(', ')}`);
+      alert(INVALID_NAME_MESSAGE);
       return;
     }
     const sources = this.getSources();
