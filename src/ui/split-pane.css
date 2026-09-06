@@ -34,7 +34,7 @@ body.split-resizing-y * {
   user-select: none;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 799px), (orientation: portrait) and (max-width: 1100px) {
   #main-splitter {
     cursor: row-resize;
   }

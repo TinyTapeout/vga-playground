@@ -16,6 +16,9 @@ const ROW_KEY = 'vga-playground.splitRow';
 const COLUMN_KEY = 'vga-playground.splitColumn';
 const KEYBOARD_STEP = 0.02;
 
+export const STACKED_LAYOUT_QUERY =
+  '(max-width: 799px), (orientation: portrait) and (max-width: 1100px)';
+
 /**
  * Splits `container` into two resizable panes. The first pane's share of the main
  * axis is published as the `--split-fraction` custom property, which the
@@ -29,7 +32,7 @@ export class SplitPane {
   private readonly splitter: HTMLElement;
   private readonly minFirstSize: number;
   private readonly minSecondSize: number;
-  private readonly columnQuery = window.matchMedia('(max-width: 799px)');
+  private readonly columnQuery = window.matchMedia(STACKED_LAYOUT_QUERY);
 
   private fraction = DEFAULT_FRACTION;
 

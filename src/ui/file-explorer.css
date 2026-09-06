@@ -244,7 +244,7 @@ body.explorer-resizing {
   font-size: 11px;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 799px), (orientation: portrait) and (max-width: 1100px) {
   .file-explorer:not(.collapsed) {
     /* Never let the sidebar crowd out the editor on a phone. */
     max-width: 45vw;

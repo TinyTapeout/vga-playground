@@ -94,7 +94,7 @@ main {
   color: white;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 799px), (orientation: portrait) and (max-width: 1100px) {
   main {
     flex-direction: column;
   }

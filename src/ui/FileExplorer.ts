@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { IErrorMessage } from '../verilator/ErrorParser';
+import { STACKED_LAYOUT_QUERY } from './SplitPane';
 import { readStorage, readStoredNumber, writeStorage } from './storage';
 
 type MarkerData = monaco.editor.IMarkerData;
@@ -135,7 +136,9 @@ export class FileExplorer {
     const storedCollapsed = readStorage(COLLAPSED_KEY);
     // On narrow screens the sidebar starts out of the way unless the user chose otherwise.
     this.setCollapsed(
-      storedCollapsed != null ? storedCollapsed === 'true' : window.innerWidth < 800,
+      storedCollapsed != null
+        ? storedCollapsed === 'true'
+        : window.matchMedia(STACKED_LAYOUT_QUERY).matches,
     );
   }
 
