@@ -18,8 +18,9 @@ import {
   VGA_WIDTH,
 } from './sim/vga';
 import { initErrorOverlay } from './ui/ErrorOverlay';
-import { FileTabs } from './ui/FileTabs';
+import { FileExplorer } from './ui/FileExplorer';
 import { initPresetBar } from './ui/PresetBar';
+import { SplitPane } from './ui/SplitPane';
 import { compileVerilator } from './verilator/compile';
 import { detectTopModule } from './verilog';
 
@@ -66,8 +67,8 @@ const editor = monaco.editor.create(codeEditorDiv, {
 });
 
 let suppressEditorChange = false;
-const fileTabs = new FileTabs({
-  container: document.getElementById('file-tabs')!,
+const fileExplorer = new FileExplorer({
+  container: document.getElementById('file-explorer')!,
   editorModel: editor.getModel()!,
   getSources: () => currentProject.sources,
   getEditorValue: () => editor.getValue(),
@@ -77,8 +78,15 @@ const fileTabs = new FileTabs({
     suppressEditorChange = false;
   },
 });
-fileTabs.currentFileName = firstFileName;
-fileTabs.render();
+fileExplorer.currentFileName = firstFileName;
+fileExplorer.render();
+
+new SplitPane({
+  container: document.querySelector('main')!,
+  splitter: document.getElementById('main-splitter')!,
+  minFirstSize: 220,
+  minSecondSize: 180,
+});
 
 const errorOverlay = initErrorOverlay(document.getElementById('error-overlay')!);
 
@@ -113,7 +121,7 @@ const res = await compileVerilator({
   topModule: detectTopModule(currentProject.sources),
   sources: currentProject.sources,
 });
-fileTabs.updateMarkers(res.errors);
+fileExplorer.updateMarkers(res.errors);
 
 if (res.output) {
   try {
@@ -182,12 +190,12 @@ editor.onDidChangeModelContent(async () => {
     return;
   }
   stopped = true;
-  currentProject.sources[fileTabs.currentFileName] = editor.getValue();
+  currentProject.sources[fileExplorer.currentFileName] = editor.getValue();
   const res = await compileVerilator({
     topModule: detectTopModule(currentProject.sources),
     sources: currentProject.sources,
   });
-  fileTabs.updateMarkers(res.errors);
+  fileExplorer.updateMarkers(res.errors);
   if (!res.output) {
     errorOverlay.showCompileErrors(res.errors);
     return;
@@ -257,9 +265,9 @@ const presetBar = initPresetBar({
   onSelect: (example) => {
     currentProject = structuredClone(example);
     const first = Object.keys(currentProject.sources)[0];
-    fileTabs.currentFileName = first;
+    fileExplorer.currentFileName = first;
     editor.setValue(currentProject.sources[first]);
-    fileTabs.render();
+    fileExplorer.render();
   },
 });
 
