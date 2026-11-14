@@ -21,6 +21,7 @@ import { initErrorOverlay } from './ui/ErrorOverlay';
 import { FileTabs } from './ui/FileTabs';
 import { initPresetBar } from './ui/PresetBar';
 import { compileVerilator } from './verilator/compile';
+import { IErrorMessage } from './verilator/ErrorParser';
 import { detectTopModule } from './verilog';
 
 self.MonacoEnvironment = {
@@ -33,6 +34,10 @@ const params = new URLSearchParams(window.location.search);
 const repoParam = params.get('repo');
 const refParam = params.get('ref');
 const presetParam = params.get('preset');
+// Embedded in another page: show only the display and its controls; the parent loads designs
+// (see "Embedding" in README.md).
+const embed = params.has('embed');
+document.documentElement.classList.toggle('embed', embed);
 
 const codeEditorDiv = document.getElementById('code-editor')!;
 
@@ -108,28 +113,6 @@ async function initModule(modules: Record<string, HDLModuleDef>) {
   reset();
 }
 
-// Initial compile
-const res = await compileVerilator({
-  topModule: detectTopModule(currentProject.sources),
-  sources: currentProject.sources,
-});
-fileTabs.updateMarkers(res.errors);
-
-if (res.output) {
-  try {
-    await initModule(res.output.modules);
-    stopped = false;
-  } catch (e) {
-    errorOverlay.show('Simulation Error', e instanceof Error ? e.message : String(e));
-  }
-} else {
-  errorOverlay.showCompileErrors(res.errors);
-}
-
-if (repoError) {
-  errorOverlay.show('Failed to load project', repoError);
-}
-
 function getVGASignals() {
   // it is significanly faster to read 'uo_out' value directly from the jmod data buffer
   // instead of jmod.state.uo_out acccessor property
@@ -177,12 +160,9 @@ audioEngine = new AudioEngine(
   },
 );
 
-editor.onDidChangeModelContent(async () => {
-  if (suppressEditorChange) {
-    return;
-  }
+/** Compiles the current project and, if that succeeds, simulates it. Returns the compiler's messages. */
+async function compileAndRun(): Promise<IErrorMessage[]> {
   stopped = true;
-  currentProject.sources[fileTabs.currentFileName] = editor.getValue();
   const res = await compileVerilator({
     topModule: detectTopModule(currentProject.sources),
     sources: currentProject.sources,
@@ -190,19 +170,60 @@ editor.onDidChangeModelContent(async () => {
   fileTabs.updateMarkers(res.errors);
   if (!res.output) {
     errorOverlay.showCompileErrors(res.errors);
-    return;
+    return res.errors;
   }
   errorOverlay.hide();
   inputController.resetButtonStates();
   try {
     await initModule(res.output.modules);
   } catch (e) {
-    errorOverlay.show('Simulation Error', e instanceof Error ? e.message : String(e));
-    return;
+    const message = e instanceof Error ? e.message : String(e);
+    errorOverlay.show('Simulation Error', message);
+    return [...res.errors, { type: 'error', file: '', line: 1, column: 1, message }];
   }
   fpsCounter.reset();
   stopped = false;
+  return res.errors;
+}
+
+editor.onDidChangeModelContent(async () => {
+  if (suppressEditorChange) {
+    return;
+  }
+  currentProject.sources[fileTabs.currentFileName] = editor.getValue();
+  await compileAndRun();
 });
+
+if (!embed) {
+  await compileAndRun();
+}
+if (repoError) {
+  errorOverlay.show('Failed to load project', repoError);
+}
+
+// Embedding API (see "Embedding" in README.md).
+window.addEventListener('message', async (event) => {
+  if (event.source !== window.parent || event.data?.type !== 'vga-playground:load') {
+    return;
+  }
+  const { id, files, dataFiles } = event.data;
+  currentProject = { ...currentProject, sources: files, dataFiles };
+  const first = Object.keys(files)[0];
+  fileTabs.currentFileName = first;
+  suppressEditorChange = true;
+  editor.setValue(files[first]);
+  suppressEditorChange = false;
+  fileTabs.render();
+  const errors = await compileAndRun();
+  // Any origin (an opaque one has none to name): the reply only describes the parent's own design.
+  window.parent.postMessage(
+    { type: 'vga-playground:loaded', id, ok: !errors.some((e) => e.type === 'error'), errors },
+    '*',
+  );
+});
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'vga-playground:ready' }, '*');
+}
 
 const canvas = document.querySelector<HTMLCanvasElement>('#vga-canvas');
 const ctx = canvas?.getContext('2d');
