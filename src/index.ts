@@ -34,10 +34,9 @@ const params = new URLSearchParams(window.location.search);
 const repoParam = params.get('repo');
 const refParam = params.get('ref');
 const presetParam = params.get('preset');
-// Embedded in another page: show only the display and its controls; the parent loads designs
-// (see "Embedding" in README.md).
+// Embedded in another page: show only the display and its controls (the `embed` class, set by index.html before the
+// page paints); the parent loads designs (see "Embedding" in README.md).
 const embed = params.has('embed');
-document.documentElement.classList.toggle('embed', embed);
 
 const codeEditorDiv = document.getElementById('code-editor')!;
 
