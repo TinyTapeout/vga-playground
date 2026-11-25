@@ -1,7 +1,8 @@
 @import './ui/controls.css';
 @import './ui/error-overlay.css';
-@import './ui/file-tabs.css';
+@import './ui/file-explorer.css';
 @import './ui/preset-bar.css';
+@import './ui/split-pane.css';
 
 body {
   display: flex;
@@ -28,39 +29,52 @@ header {
 }
 
 main {
+  /* Driven by SplitPane; the editor takes this share of the main axis. */
+  --split-fraction: 0.5;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
-  justify-content: center;
   align-items: stretch;
   background-color: black;
 }
 
 #editor-panel {
   display: flex;
-  flex-direction: column;
-  flex: 1;
+  flex-direction: row;
+  flex: 0 0 calc(var(--split-fraction) * 100%);
   min-width: 0;
-  width: 50%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 #code-editor {
   flex: 1;
-  min-height: 200px;
+  min-width: 0;
   overflow: hidden;
 }
 
 #vga-canvas-container {
-  max-width: 50%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .canvas-wrapper {
   position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 #vga-canvas {
+  display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  /* Letterbox the 736x520 framebuffer into whatever the split leaves us. */
+  object-fit: contain;
   image-rendering: pixelated;
 }
 
@@ -80,28 +94,23 @@ main {
   color: white;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 799px), (orientation: portrait) and (max-width: 1100px) {
   main {
     flex-direction: column;
   }
 
+  /* Stacked: display on top, then the handle, then the editor. */
   #vga-canvas-container {
-    max-width: 100%;
+    order: -2;
+    flex: 0 0 calc(var(--split-fraction) * 100%);
+  }
+
+  #main-splitter {
     order: -1;
   }
 
-  #vga-canvas {
-    max-height: 40vh;
-  }
-
   #editor-panel {
-    flex: 1;
-    width: 100%;
-    min-height: 150px;
-  }
-
-  #code-editor {
-    min-height: 0;
+    flex: 1 1 0;
   }
 
   .header-title {
