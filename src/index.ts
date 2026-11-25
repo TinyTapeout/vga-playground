@@ -85,8 +85,8 @@ const errorOverlay = initErrorOverlay(document.getElementById('error-overlay')!)
 // Simulation state
 let jmod: HDLModuleWASM | null = null;
 let uo_out_offset = 0;
-let uio_out_offset = 0;
-let uio_oe_offset = 0;
+// null for designs without uio pins (micro tile projects): they have no audio output
+let uioOffsets: { uio_out: number; uio_oe: number } | null = null;
 let syncPolarity: SyncPolarity = { hsyncActiveLow: false, vsyncActiveLow: false };
 let stopped = true;
 
@@ -103,8 +103,9 @@ async function initModule(modules: Record<string, HDLModuleDef>) {
   await jmod.init();
   jmod.getFileData = (path) => currentProject.dataFiles?.[path];
   uo_out_offset = jmod.globals.lookup('uo_out').offset;
-  uio_out_offset = jmod.globals.lookup('uio_out').offset;
-  uio_oe_offset = jmod.globals.lookup('uio_oe').offset;
+  const uio_out = jmod.globals.lookup('uio_out');
+  const uio_oe = jmod.globals.lookup('uio_oe');
+  uioOffsets = uio_out && uio_oe ? { uio_out: uio_out.offset, uio_oe: uio_oe.offset } : null;
   reset();
 }
 
@@ -138,9 +139,10 @@ function getVGASignals() {
 }
 
 function getAudioSignal() {
+  if (!uioOffsets) return 0;
   // see getVGASignals() implementation above for explanation about use of jmod.data8
-  const uio_out = jmod!.data8[uio_out_offset];
-  const uio_oe = jmod!.data8[uio_oe_offset];
+  const uio_out = jmod!.data8[uioOffsets.uio_out];
+  const uio_oe = jmod!.data8[uioOffsets.uio_oe];
   return (uio_out & uio_oe) >> 7;
 }
 
