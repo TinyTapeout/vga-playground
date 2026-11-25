@@ -80,6 +80,32 @@ main {
   color: white;
 }
 
+.embed header,
+.embed #preset-bar,
+.embed #editor-panel {
+  display: none;
+}
+
+/* The display fills the frame, below its controls. */
+.embed #vga-canvas-container {
+  max-width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.embed .canvas-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.embed #vga-canvas {
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+
 @media (max-width: 799px) {
   main {
     flex-direction: column;

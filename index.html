@@ -15,6 +15,10 @@
 
     <link href="https://cdn.jsdelivr.net/npm/reset-css@5.0.2/reset.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="src/index.css" />
+    <!-- Embed mode (see src/index.ts) is set here, before the page paints, so its hidden parts never show. -->
+    <script>
+      document.documentElement.classList.toggle('embed', new URLSearchParams(location.search).has('embed'));
+    </script>
   </head>
   <body>
     <header>
